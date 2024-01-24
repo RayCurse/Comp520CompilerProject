@@ -20,4 +20,13 @@ public enum TokenType {
     TrueKeyword,
     FalseKeyword,
     NewKeyword,
+
+    LParen,
+    RParen,
+    LBrack,
+    RBrack,
+    LCurly,
+    RCurly,
+    Dot,
+    Semicolon,
 }
