@@ -5,7 +5,8 @@ public enum TokenType {
     ClassKeyword,
     Id,
     VoidKeyword,
-    VisibilityKeyword,
+    PublicKeyword,
+    PrivateKeyword,
     StaticKeyword,
     IntKeyword,
     BooleanKeyword,
@@ -27,6 +28,8 @@ public enum TokenType {
     RBrack,
     LCurly,
     RCurly,
+    Equals,
     Dot,
+    Comma,
     Semicolon,
 }
