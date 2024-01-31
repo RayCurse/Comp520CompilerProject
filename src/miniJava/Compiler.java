@@ -3,9 +3,9 @@ package miniJava;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+
+import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
-import miniJava.SyntacticAnalyzer.Token;
-import miniJava.SyntacticAnalyzer.TokenType;
 
 public class Compiler {
     public static void main(String[] args) throws FileNotFoundException, IOException {
@@ -20,13 +20,14 @@ public class Compiler {
         try {
             fStream = new FileInputStream(filePath);
             Scanner scanner = new Scanner(fStream);
-
-            Token currentToken = scanner.scan();
-            System.out.println(currentToken);
-
-            while (currentToken.type != TokenType.EOT) {
-                currentToken = scanner.scan();
-                System.out.println(currentToken);
+            Parser parser = new Parser(scanner);
+            parser.printTokens = true;
+            boolean valid = parser.parseTokenStream();
+            if (valid) {
+                System.out.println("Success");
+            } else {
+                System.out.println("Error");
+                System.out.println(parser.getErrorMsg());
             }
         } finally {
             if (fStream != null) { fStream.close(); }

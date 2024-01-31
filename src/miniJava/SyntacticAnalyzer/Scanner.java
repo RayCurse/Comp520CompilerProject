@@ -109,7 +109,7 @@ public class Scanner {
             // minus operator is a special case because it may also be a UnOp
             // assume that minus is BinOp and treat is as UnOp if previous token was one that can come before UnOp
             // these tokens are disjoint with those that can come before a BinOp so there is no ambiguity
-            if (prevTokenType != null && ValidUnOpPrecedingTokens.contains(prevTokenType)) {
+            if (currentChar == '-' && prevTokenType != null && ValidUnOpPrecedingTokens.contains(prevTokenType)) {
                 prevTokenType = TokenType.UnOp;
                 return new Token(TokenType.UnOp, tokenText.toString());
             }
