@@ -6,19 +6,25 @@ public class Parser {
     public boolean printTokens = false;
     private Scanner tokenStream;
     private Token lookAheadBuffer = null;
-    private Token lookAhead() throws IOException {
+    private Token lookAhead() throws IOException, TerminalParseException {
         if (lookAheadBuffer == null) {
             lookAheadBuffer = tokenStream.scan();
+            if (lookAheadBuffer == null) {
+                throw new TerminalParseException(String.format("Invalid token"));
+            }
         }
         return lookAheadBuffer;
     }
-    private Token nextToken() throws IOException {
+    private Token nextToken() throws IOException, TerminalParseException {
         Token res;
         if (lookAheadBuffer != null) {
             res = lookAheadBuffer;
             lookAheadBuffer = null;
         } else {
             res = tokenStream.scan();
+            if (res == null) {
+                throw new TerminalParseException(String.format("Invalid token"));
+            }
         }
         if (printTokens) {
             System.out.print(res);
@@ -55,15 +61,17 @@ public class Parser {
             errorMessageBuilder.append(firstElement.getMethodName().substring(4));
             errorMessageBuilder.append(':');
             errorMessageBuilder.append(firstElement.getLineNumber());
-            errorMessageBuilder.append(" in\n");
-            for (int i = 2; i < stackTrace.length - 2; i++) {
-                StackTraceElement element = stackTrace[i];
-                errorMessageBuilder.append("  ");
-                errorMessageBuilder.append(element.getMethodName().substring(4));
-                errorMessageBuilder.append(':');
-                errorMessageBuilder.append(element.getLineNumber());
-                if (i < stackTrace.length - 3) {
-                    errorMessageBuilder.append('\n');
+            if (stackTrace.length > 4) {
+                errorMessageBuilder.append(" in\n");
+                for (int i = 2; i < stackTrace.length - 2; i++) {
+                    StackTraceElement element = stackTrace[i];
+                    errorMessageBuilder.append("  ");
+                    errorMessageBuilder.append(element.getMethodName().substring(4));
+                    errorMessageBuilder.append(':');
+                    errorMessageBuilder.append(element.getLineNumber());
+                    if (i < stackTrace.length - 3) {
+                        errorMessageBuilder.append('\n');
+                    }
                 }
             }
             errorMessage = errorMessageBuilder.toString();
@@ -188,6 +196,7 @@ public class Parser {
     }
 
     private void cfg_Statement() throws IOException, TerminalParseException {
+        boolean isRef = false;
         if (lookAhead().type == TokenType.LCurly) {
             expectToken(TokenType.LCurly);
             while (lookAhead().type != TokenType.RCurly && lookAhead().type != TokenType.EOT) {
@@ -216,7 +225,31 @@ public class Parser {
             cfg_Expression();
             expectToken(TokenType.RParen);
             cfg_Statement();
-        } else if (lookAhead().type == TokenType.Id || lookAhead().type == TokenType.ThisKeyword) {
+        } else if (lookAhead().type == TokenType.Id) {
+            cfg_RefOrId();
+            if (lookAhead().type == TokenType.Id) {
+                expectToken(TokenType.Id);
+                expectToken(TokenType.Equals);
+                cfg_Expression();
+                expectToken(TokenType.Semicolon);
+            } else if (lookAhead().type == TokenType.Equals) {
+                expectToken(TokenType.Equals);
+                cfg_Expression();
+                expectToken(TokenType.Semicolon);
+            } else if (lookAhead().type == TokenType.RBrack) {
+                expectToken(TokenType.RBrack);
+                expectToken(TokenType.Equals);
+                cfg_Expression();
+                expectToken(TokenType.Semicolon);
+            } else {
+                expectToken(TokenType.LParen);
+                if (lookAhead().type != TokenType.RParen) {
+                    cfg_ArgumentList();
+                }
+                expectToken(TokenType.RParen);
+                expectToken(TokenType.Semicolon);
+            }
+        } else if (lookAhead().type == TokenType.ThisKeyword) {
             cfg_Reference();
             if (lookAhead().type == TokenType.Equals) {
                 expectToken(TokenType.Equals);
@@ -243,6 +276,29 @@ public class Parser {
             expectToken(TokenType.Equals);
             cfg_Expression();
             expectToken(TokenType.Semicolon);
+        }
+    }
+    private void cfg_RefOrId() throws IOException, TerminalParseException {
+        // When we expect a type or reference but lookahead was an id
+        expectToken(TokenType.Id);
+        if (lookAhead().type == TokenType.Id) {
+            // This is a type and we are done
+        } else if (lookAhead().type == TokenType.LBrack) {
+            // Could still be either
+            expectToken(TokenType.LBrack);
+            if (lookAhead().type == TokenType.RBrack) {
+                // This is a type
+                expectToken(TokenType.RBrack);
+            } else {
+                // This is a reference
+                cfg_Expression();
+            }
+        } else {
+            // This is a reference
+            while (lookAhead().type == TokenType.Dot && lookAhead().type != TokenType.EOT) {
+                expectToken(TokenType.Dot);
+                expectToken(TokenType.Id);
+            }
         }
     }
 
@@ -275,7 +331,6 @@ public class Parser {
             expectToken(TokenType.FalseKeyword);
         } else {
             expectToken(TokenType.NewKeyword);
-            expectToken(TokenType.LParen);
             if (lookAhead().type == TokenType.Id) {
                 expectToken(TokenType.Id);
                 if (lookAhead().type == TokenType.LParen) {
@@ -286,19 +341,16 @@ public class Parser {
                     cfg_Expression();
                     expectToken(TokenType.RBrack);
                 }
-            } else if (lookAhead().type == TokenType.IntKeyword) {
+            } else {
                 expectToken(TokenType.IntKeyword);
                 expectToken(TokenType.LBrack);
                 cfg_Expression();
                 expectToken(TokenType.RBrack);
             }
-            expectToken(TokenType.RParen);
         }
         while (lookAhead().type == TokenType.BinOp) {
             expectToken(TokenType.BinOp);
             cfg_Expression();
         }
     }
-
-
 }

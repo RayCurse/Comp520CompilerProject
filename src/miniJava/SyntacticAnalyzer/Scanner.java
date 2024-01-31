@@ -47,7 +47,7 @@ public class Scanner {
         return isNumeric(n) || isAlpha(n) || (char) n == '_';
     }
 
-    private void consumeWhitespaceAndComments() throws IOException {
+    private boolean consumeWhitespaceAndComments() throws IOException {
         while (true) {
             boolean foundIgnoredChars = false;
 
@@ -55,15 +55,21 @@ public class Scanner {
             if ((char) lookAhead(0) == '/' && (char) lookAhead(1) == '/') {
                 foundIgnoredChars = true;
                 int currentChar = nextChar();
-                while ((char) currentChar != '\n' && currentChar != -1) {
+                while ((char) currentChar != '\n' && (char) currentChar != '\r' && currentChar != -1) {
                     currentChar = (char) nextChar();
                 }
 
             // Block comment
             } else if ((char) lookAhead(0) == '/' && (char) lookAhead(1) == '*') {
                 foundIgnoredChars = true;
+                nextChar();
+                nextChar();
                 while (!((char) lookAhead(0) == '*' && (char) lookAhead(1) == '/') && lookAhead(0) != -1) {
                     nextChar();
+                }
+                if (lookAhead(0) == -1) {
+                    // Unclosed block comment
+                    return false;
                 }
                 nextChar();
                 nextChar();
@@ -77,6 +83,7 @@ public class Scanner {
             }
             if (!foundIgnoredChars) { break; }
         }
+        return true;
     }
 
 
@@ -86,7 +93,9 @@ public class Scanner {
 
     private TokenType prevTokenType = null;
     public Token scan() throws IOException {
-        consumeWhitespaceAndComments();
+        if (!consumeWhitespaceAndComments()) {
+            return null;
+        }
         StringBuilder tokenText = new StringBuilder();
 
         int currentChar = nextChar();

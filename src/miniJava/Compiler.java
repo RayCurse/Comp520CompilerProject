@@ -21,7 +21,7 @@ public class Compiler {
             fStream = new FileInputStream(filePath);
             Scanner scanner = new Scanner(fStream);
             Parser parser = new Parser(scanner);
-            parser.printTokens = true;
+            // parser.printTokens = true;
             boolean valid = parser.parseTokenStream();
             if (valid) {
                 System.out.println("Success");
