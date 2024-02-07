@@ -226,27 +226,31 @@ public class Parser {
             expectToken(TokenType.RParen);
             cfg_Statement();
         } else if (lookAhead().type == TokenType.Id) {
-            cfg_RefOrId();
-            if (lookAhead().type == TokenType.Id) {
+            int refIdType = cfg_RefOrId();
+            if (refIdType == 0) {
+                // Is a type, parsed up till Type
                 expectToken(TokenType.Id);
                 expectToken(TokenType.Equals);
                 cfg_Expression();
                 expectToken(TokenType.Semicolon);
-            } else if (lookAhead().type == TokenType.Equals) {
-                expectToken(TokenType.Equals);
-                cfg_Expression();
-                expectToken(TokenType.Semicolon);
-            } else if (lookAhead().type == TokenType.RBrack) {
-                expectToken(TokenType.RBrack);
-                expectToken(TokenType.Equals);
-                cfg_Expression();
-                expectToken(TokenType.Semicolon);
-            } else {
-                expectToken(TokenType.LParen);
-                if (lookAhead().type != TokenType.RParen) {
-                    cfg_ArgumentList();
+            } else if (refIdType == 1) {
+                // Is a ref, parsed up till Reference
+                if (lookAhead().type == TokenType.Equals) {
+                    expectToken(TokenType.Equals);
+                    cfg_Expression();
+                    expectToken(TokenType.Semicolon);
+                } else {
+                    expectToken(TokenType.LParen);
+                    if (lookAhead().type != TokenType.RParen) {
+                        cfg_ArgumentList();
+                    }
+                    expectToken(TokenType.RParen);
+                    expectToken(TokenType.Semicolon);
                 }
-                expectToken(TokenType.RParen);
+            } else {
+                // Is a ref, parsed up till Reference[Expression]
+                expectToken(TokenType.Equals);
+                cfg_Expression();
                 expectToken(TokenType.Semicolon);
             }
         } else if (lookAhead().type == TokenType.ThisKeyword) {
@@ -278,27 +282,38 @@ public class Parser {
             expectToken(TokenType.Semicolon);
         }
     }
-    private void cfg_RefOrId() throws IOException, TerminalParseException {
+    private int cfg_RefOrId() throws IOException, TerminalParseException {
         // When we expect a type or reference but lookahead was an id
         expectToken(TokenType.Id);
         if (lookAhead().type == TokenType.Id) {
-            // This is a type and we are done
+            return 0;
         } else if (lookAhead().type == TokenType.LBrack) {
             // Could still be either
             expectToken(TokenType.LBrack);
             if (lookAhead().type == TokenType.RBrack) {
                 // This is a type
                 expectToken(TokenType.RBrack);
+                return 0;
             } else {
                 // This is a reference
                 cfg_Expression();
+                expectToken(TokenType.RBrack);
+                return 2;
             }
         } else {
             // This is a reference
+            int type = 1;
             while (lookAhead().type == TokenType.Dot && lookAhead().type != TokenType.EOT) {
                 expectToken(TokenType.Dot);
                 expectToken(TokenType.Id);
             }
+            if (lookAhead().type == TokenType.LBrack) {
+                type = 2;
+                expectToken(TokenType.LBrack);
+                cfg_Expression();
+                expectToken(TokenType.RBrack);
+            }
+            return type;
         }
     }
 
