@@ -56,7 +56,7 @@ public class Scanner {
                 foundIgnoredChars = true;
                 int currentChar = nextChar();
                 while ((char) currentChar != '\n' && (char) currentChar != '\r' && currentChar != -1) {
-                    currentChar = (char) nextChar();
+                    currentChar = nextChar();
                 }
 
             // Block comment
