@@ -10,6 +10,8 @@ import java.util.Set;
 public class Scanner {
     private FileInputStream fStream;
     private List<Integer> lookAheadBuffer = new ArrayList<Integer>();
+    private int currentLineNumber = 1;
+    private int currentColumnNumber = 1;
     private int lookAhead(int n) throws IOException {
         if (lookAheadBuffer.size() - 1 >= n) {
             return lookAheadBuffer.get(n);
@@ -21,11 +23,19 @@ public class Scanner {
         }
     }
     private int nextChar() throws IOException {
+        int res;
         if (lookAheadBuffer.size() > 0) {
-            return lookAheadBuffer.remove(0);
+            res = lookAheadBuffer.remove(0);
         } else {
-            return fStream.read();
+            res = fStream.read();
         }
+        if ((char) res == '\n') {
+            currentLineNumber += 1;
+            currentColumnNumber = 1;
+        } else {
+            currentColumnNumber += 1;
+        }
+        return res;
     }
 
     private boolean isWhitespace(int n) {
@@ -105,13 +115,13 @@ public class Scanner {
         // EOT token
         if (currentChar == -1) {
             prevTokenType = TokenType.EOT;
-            return new Token(TokenType.EOT);
+            return new Token(TokenType.EOT, new SourcePosition(currentLineNumber, currentColumnNumber - 1));
 
         // Double char operators
         } else if (doubleCharTokenTypes.containsKey(nextTwoChars)) {
             tokenText.append((char) nextChar());
             prevTokenType = doubleCharTokenTypes.get(nextTwoChars);
-            return new Token(prevTokenType, tokenText.toString());
+            return new Token(prevTokenType, tokenText.toString(), new SourcePosition(currentLineNumber, currentColumnNumber - 2));
 
         // Single char tokens and single character operators
         } else if (singleCharTokenTypes.containsKey((char) currentChar)) {
@@ -120,24 +130,25 @@ public class Scanner {
             // these tokens are disjoint with those that can come before a BinOp so there is no ambiguity
             if (currentChar == '-' && prevTokenType != null && ValidUnOpPrecedingTokens.contains(prevTokenType)) {
                 prevTokenType = TokenType.UnOp;
-                return new Token(TokenType.UnOp, tokenText.toString());
+                return new Token(TokenType.UnOp, tokenText.toString(), new SourcePosition(currentLineNumber, currentColumnNumber - 1));
             }
 
             prevTokenType = singleCharTokenTypes.get((char) currentChar);
-            return new Token(prevTokenType, tokenText.toString());
+            return new Token(prevTokenType, tokenText.toString(), new SourcePosition(currentLineNumber, currentColumnNumber - 1));
 
         // Id and keyword tokens
         } else if (isAlpha(currentChar)) {
+            SourcePosition pos = new SourcePosition(currentLineNumber, currentColumnNumber - 1);
             while (isValidIdChar(lookAhead(0))) {
                 tokenText.append((char) nextChar());
             }
             String text = tokenText.toString();
             if (keywordTokenTypes.containsKey(text)) {
                 prevTokenType = keywordTokenTypes.get(text);
-                return new Token(prevTokenType, text);
+                return new Token(prevTokenType, text, pos);
             }
             prevTokenType= TokenType.Id;
-            return new Token(prevTokenType, text);
+            return new Token(prevTokenType, text, pos);
 
         // Num token
         } else if (isNumeric(currentChar)) {
@@ -145,7 +156,7 @@ public class Scanner {
                 tokenText.append((char) nextChar());
             }
             prevTokenType = TokenType.Num;
-            return new Token(prevTokenType, tokenText.toString());
+            return new Token(prevTokenType, tokenText.toString(), new SourcePosition(currentLineNumber, currentColumnNumber));
         }
         return null;
     }
