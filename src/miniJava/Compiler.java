@@ -4,6 +4,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import miniJava.AbstractSyntaxTrees.ASTDisplay;
+import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 
@@ -22,9 +24,12 @@ public class Compiler {
             Scanner scanner = new Scanner(fStream);
             Parser parser = new Parser(scanner);
             // parser.printTokens = true;
-            boolean valid = parser.parseTokenStream();
-            if (valid) {
+            Package AST = parser.parseTokenStream();
+            if (AST != null) {
                 System.out.println("Success");
+                ASTDisplay.showPosition = true;
+                ASTDisplay display = new ASTDisplay();
+                display.showTree(AST);
             } else {
                 System.out.println("Error");
                 System.out.println(parser.getErrorMsg());

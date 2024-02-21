@@ -1,7 +1,11 @@
 package miniJava.SyntacticAnalyzer;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import miniJava.AbstractSyntaxTrees.Package;
+import miniJava.AbstractSyntaxTrees.*;
 
 public class Parser {
     public boolean printTokens = false;
@@ -32,14 +36,15 @@ public class Parser {
         }
         return res;
     }
-    private void expectTokenType(TokenType validType) throws IOException, TerminalParseException {
+    private Token expectTokenType(TokenType validType) throws IOException, TerminalParseException {
         Token token = nextToken();
         if (token.type != validType) {
             throw new TerminalParseException(String.format("Expected %s, got %s at source position %s", validType, token.type, token.getTokenPosition()));
         }
+        return token;
     }
 
-    private void expectTokenTypeAndText(TokenType validType, String validStr) throws IOException, TerminalParseException {
+    private Token expectTokenTypeAndText(TokenType validType, String validStr) throws IOException, TerminalParseException {
         Token token = nextToken();
         if (token.type != validType) {
             throw new TerminalParseException(String.format("Expected %s, got %s at source position %s", validType, token.type, token.getTokenPosition()));
@@ -47,8 +52,9 @@ public class Parser {
         if (!token.text.equals(validStr)) {
             throw new TerminalParseException(String.format("Expected %s, got %s in terminal type %s at source position %s", validStr, token.text, token.type, token.getTokenPosition()));
         }
+        return token;
     }
-    private void expectTokenTypeAndText(TokenType validType, Set<String> validStrs) throws IOException, TerminalParseException {
+    private Token expectTokenTypeAndText(TokenType validType, Set<String> validStrs) throws IOException, TerminalParseException {
         Token token = nextToken();
         if (token.type != validType) {
             throw new TerminalParseException(String.format("Expected %s, got %s at source position %s", validType, token.type, token.getTokenPosition()));
@@ -56,22 +62,24 @@ public class Parser {
         if (!validStrs.contains(token.text)) {
             throw new TerminalParseException(String.format("Expected one of %s, got %s in terminal type %s at source position %s", validStrs, token.text, token.type, token.getTokenPosition()));
         }
+        return token;
     }
 
     public Parser(Scanner tokenStream) {
         this.tokenStream = tokenStream;
     }
 
-    private Boolean parseResult;
-    public boolean parseTokenStream() throws IOException {
-        if (parseResult != null) {
+    private boolean completedParse = false;
+    private Package parseResult;
+    public Package parseTokenStream() throws IOException {
+        if (completedParse) {
             return parseResult;
         }
-        parseResult = true;
+        completedParse = true;
         try {
-            cfg_Program();
+            parseResult = cfg_Program();
         } catch (TerminalParseException e) {
-            parseResult = false;
+            parseResult = null;
             StackTraceElement[] stackTrace = e.getStackTrace();
             StackTraceElement firstElement = stackTrace[1];
             StringBuilder errorMessageBuilder = new StringBuilder();
@@ -108,232 +116,313 @@ public class Parser {
     }
 
     // CFG rules
-    private void cfg_Program() throws IOException, TerminalParseException {
+    private Package cfg_Program() throws IOException, TerminalParseException {
+        ClassDeclList classList = new ClassDeclList();
+        SourcePosition pos = null;
         while (lookAhead().type != TokenType.EOT) {
-            cfg_ClassDeclaration();
+            ClassDecl classDecl = cfg_ClassDeclaration();
+            if (pos == null) {
+                pos = classDecl.posn;
+            }
+            classList.add(classDecl);
         }
-        expectTokenType(TokenType.EOT);
+        Token eotToken = expectTokenType(TokenType.EOT);
+        if (pos == null) {
+            pos = eotToken.getTokenPosition();
+        }
+        return new Package(classList, pos);
     }
 
-    private void cfg_ClassDeclaration() throws IOException, TerminalParseException {
-        expectTokenType(TokenType.ClassKeyword);
-        expectTokenType(TokenType.Id);
+    private ClassDecl cfg_ClassDeclaration() throws IOException, TerminalParseException {
+        SourcePosition pos = expectTokenType(TokenType.ClassKeyword).getTokenPosition();
+        String className = expectTokenType(TokenType.Id).text;
+        FieldDeclList fields = new FieldDeclList();
+        MethodDeclList methods = new MethodDeclList();
         expectTokenType(TokenType.LCurly);
         while (lookAhead().type != TokenType.RCurly && lookAhead().type != TokenType.EOT) {
-            cfg_ClassMemberDeclaration();
+            MemberDecl member = cfg_ClassMemberDeclaration();
+            if (member instanceof FieldDecl) {
+                fields.add((FieldDecl) member);
+            } else if (member instanceof MethodDecl) {
+                methods.add((MethodDecl) member);
+            }
         }
         expectTokenType(TokenType.RCurly);
+        return new ClassDecl(className, fields, methods, pos);
     }
 
-    private void cfg_ClassMemberDeclaration() throws IOException, TerminalParseException {
+    private MemberDecl cfg_ClassMemberDeclaration() throws IOException, TerminalParseException {
         boolean isMethod = false;
-        cfg_Visibility();
-        cfg_Access();
+        Token visibilityToken = cfg_Visibility();
+        Boolean isPrivate = visibilityToken.text.equals("private");
+        Boolean isStatic = false;
+        TypeDenoter type = null;
+        SourcePosition pos = visibilityToken.getTokenPosition();
+        if (cfg_Access() != null) {
+            isStatic = true;
+        }
         if (lookAhead().type == TokenType.VoidKeyword) {
             // must be method since void only applies to methods
             isMethod = true;
-            expectTokenType(TokenType.VoidKeyword);
+            SourcePosition typePos = expectTokenType(TokenType.VoidKeyword).getTokenPosition();
+            type = new BaseType(TypeKind.VOID, typePos);
         } else {
-            cfg_Type();
+            type = cfg_Type();
         }
-        expectTokenType(TokenType.Id);
+        String name = expectTokenType(TokenType.Id).text;
+        FieldDecl fieldDecl = new FieldDecl(isPrivate, isStatic, type, name, pos);
         if (!isMethod && lookAhead().type == TokenType.Semicolon) {
             // field
             expectTokenType(TokenType.Semicolon);
+            return fieldDecl;
         } else {
             // method
+            ParameterDeclList params = null;
+            StatementList statements = new StatementList();
             expectTokenType(TokenType.LParen);
             if (lookAhead().type != TokenType.RParen) {
-                cfg_ParameterList();
+                params = cfg_ParameterList();
+            } else {
+                params = new ParameterDeclList();
             }
             expectTokenType(TokenType.RParen);
             expectTokenType(TokenType.LCurly);
             while (lookAhead().type != TokenType.RCurly && lookAhead().type != TokenType.EOT) {
-                cfg_Statement();
+                statements.add(cfg_Statement());
             }
             expectTokenType(TokenType.RCurly);
+            return new MethodDecl(fieldDecl, params, statements, fieldDecl.posn);
         }
     }
 
-    private void cfg_Visibility() throws IOException, TerminalParseException {
+    private Token cfg_Visibility() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.PublicKeyword) {
-            expectTokenType(TokenType.PublicKeyword);
-        } else if (lookAhead().type == TokenType.PrivateKeyword) {
-            expectTokenType(TokenType.PrivateKeyword);
+            return expectTokenType(TokenType.PublicKeyword);
+        } else {
+            return expectTokenType(TokenType.PrivateKeyword);
         }
     }
 
-    private void cfg_Access() throws IOException, TerminalParseException {
+    private Token cfg_Access() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.StaticKeyword) {
-            expectTokenType(TokenType.StaticKeyword);
+            return expectTokenType(TokenType.StaticKeyword);
         }
+        return null;
     }
 
-    private void cfg_Type() throws IOException, TerminalParseException {
+    private TypeDenoter cfg_Type() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.IntKeyword || lookAhead().type == TokenType.Id) {
+            TypeDenoter type = null;
             if (lookAhead().type == TokenType.IntKeyword) {
+                type = new BaseType(TypeKind.INT, lookAhead().getTokenPosition());
                 expectTokenType(TokenType.IntKeyword);
             } else if (lookAhead().type == TokenType.Id) {
-                expectTokenType(TokenType.Id);
+                Identifier classIdentifier = new Identifier(expectTokenType(TokenType.Id));
+                type = new ClassType(classIdentifier, classIdentifier.posn);
             }
             if (lookAhead().type == TokenType.LBrack) {
                 expectTokenType(TokenType.LBrack);
                 expectTokenType(TokenType.RBrack);
+                return new ArrayType(type, type.posn);
             }
-        } else if (lookAhead().type == TokenType.BooleanKeyword) {
-            expectTokenType(TokenType.BooleanKeyword);
-        }
-    }
-
-    private void cfg_ParameterList() throws IOException, TerminalParseException {
-        cfg_Type();
-        expectTokenType(TokenType.Id);
-        while (lookAhead().type == TokenType.Comma) {
-            expectTokenType(TokenType.Comma);
-            cfg_Type();
-            expectTokenType(TokenType.Id);
-        }
-    }
-
-    private void cfg_ArgumentList() throws IOException, TerminalParseException {
-        cfg_Expression();
-        while (lookAhead().type == TokenType.Comma) {
-            expectTokenType(TokenType.Comma);
-            cfg_Expression();
-        }
-    }
-
-    private void cfg_Reference() throws IOException, TerminalParseException {
-        if (lookAhead().type == TokenType.Id) {
-            expectTokenType(TokenType.Id);
+            return type;
         } else {
-            expectTokenType(TokenType.ThisKeyword);
+            SourcePosition pos = expectTokenType(TokenType.BooleanKeyword).getTokenPosition();
+            return new BaseType(TypeKind.BOOLEAN, pos);
+        }
+    }
+
+    private ParameterDeclList cfg_ParameterList() throws IOException, TerminalParseException {
+        ParameterDeclList params = new ParameterDeclList();
+        TypeDenoter type = cfg_Type();
+        String name = expectTokenType(TokenType.Id).text;
+        params.add(new ParameterDecl(type, name, type.posn));
+        while (lookAhead().type == TokenType.Comma) {
+            expectTokenType(TokenType.Comma);
+            type = cfg_Type();
+            name = expectTokenType(TokenType.Id).text;
+            params.add(new ParameterDecl(type, name, type.posn));
+        }
+        return params;
+    }
+
+    private ExprList cfg_ArgumentList() throws IOException, TerminalParseException {
+        ExprList exprs = new ExprList();
+        exprs.add(cfg_Expression());
+        while (lookAhead().type == TokenType.Comma) {
+            expectTokenType(TokenType.Comma);
+            exprs.add(cfg_Expression());
+        }
+        return exprs;
+    }
+
+    private Reference cfg_Reference() throws IOException, TerminalParseException {
+        Reference ref = null;
+        if (lookAhead().type == TokenType.Id) {
+            Identifier identifierToken = new Identifier(expectTokenType(TokenType.Id));
+            ref = new IdRef(identifierToken, identifierToken.posn);
+        } else {
+            Token thisToken = expectTokenType(TokenType.ThisKeyword);
+            ref = new ThisRef(thisToken.getTokenPosition());
         }
         while (lookAhead().type == TokenType.Dot && lookAhead().type != TokenType.EOT) {
             expectTokenType(TokenType.Dot);
-            expectTokenType(TokenType.Id);
+            Identifier identifier = new Identifier(expectTokenType(TokenType.Id));
+            ref = new QualRef(ref, identifier, identifier.posn);
         }
+        return ref;
     }
 
-    private void cfg_Statement() throws IOException, TerminalParseException {
-        boolean isRef = false;
+    private Statement cfg_Statement() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.LCurly) {
-            expectTokenType(TokenType.LCurly);
+            SourcePosition pos = expectTokenType(TokenType.LCurly).getTokenPosition();
+            StatementList statements = new StatementList();
             while (lookAhead().type != TokenType.RCurly && lookAhead().type != TokenType.EOT) {
-                cfg_Statement();
+                statements.add(cfg_Statement());
             }
             expectTokenType(TokenType.RCurly);
+            return new BlockStmt(statements, pos);
         } else if (lookAhead().type == TokenType.ReturnKeyword) {
-            expectTokenType(TokenType.ReturnKeyword);
+            SourcePosition pos = expectTokenType(TokenType.ReturnKeyword).getTokenPosition();
+            Expression expression = null;
             if (lookAhead().type != TokenType.Semicolon) {
-                cfg_Expression();
+                expression = cfg_Expression();
             }
             expectTokenType(TokenType.Semicolon);
+            return new ReturnStmt(expression, pos);
         } else if (lookAhead().type == TokenType.IfKeyword) {
-            expectTokenType(TokenType.IfKeyword);
+            SourcePosition pos = expectTokenType(TokenType.IfKeyword).getTokenPosition();
             expectTokenType(TokenType.LParen);
-            cfg_Expression();
+            Expression condition = cfg_Expression();
             expectTokenType(TokenType.RParen);
-            cfg_Statement();
+            Statement thenStatement = cfg_Statement();
+            Statement elseStatement = null;
             if (lookAhead().type == TokenType.ElseKeyword) {
                 expectTokenType(TokenType.ElseKeyword);
-                cfg_Statement();
+                elseStatement = cfg_Statement();
+            }
+            if (elseStatement != null) {
+                return new IfStmt(condition, thenStatement, elseStatement, pos);
+            } else {
+                return new IfStmt(condition, thenStatement, pos);
             }
         } else if (lookAhead().type == TokenType.WhileKeyword) {
-            expectTokenType(TokenType.WhileKeyword);
+            SourcePosition pos = expectTokenType(TokenType.WhileKeyword).getTokenPosition();
             expectTokenType(TokenType.LParen);
-            cfg_Expression();
+            Expression condition = cfg_Expression();
             expectTokenType(TokenType.RParen);
-            cfg_Statement();
+            Statement statement = cfg_Statement();
+            return new WhileStmt(condition, statement, pos);
         } else if (lookAhead().type == TokenType.Id) {
-            int refIdType = cfg_RefOrId();
-            if (refIdType == 0) {
+            List<AST> parsedElements = cfg_RefOrId();
+            if (parsedElements.get(0) instanceof TypeDenoter) {
                 // Is a type, parsed up till Type
-                expectTokenType(TokenType.Id);
+                TypeDenoter type = (TypeDenoter) parsedElements.get(0);
+                String name = expectTokenType(TokenType.Id).text;
                 expectTokenType(TokenType.Equals);
-                cfg_Expression();
+                Expression expression = cfg_Expression();
                 expectTokenType(TokenType.Semicolon);
-            } else if (refIdType == 1) {
-                // Is a ref, parsed up till Reference
+                return new VarDeclStmt(new VarDecl(type, name, type.posn), expression, type.posn);
+            } else if (parsedElements.size() == 1) {
+                // Is a ref without an index, parsed up till Reference
+                Reference reference = (Reference) parsedElements.get(0);
                 if (lookAhead().type == TokenType.Equals) {
                     expectTokenType(TokenType.Equals);
-                    cfg_Expression();
+                    Expression expression = cfg_Expression();
                     expectTokenType(TokenType.Semicolon);
+                    return new AssignStmt(reference, expression, reference.posn);
                 } else {
                     expectTokenType(TokenType.LParen);
+                    ExprList args = null;
                     if (lookAhead().type != TokenType.RParen) {
-                        cfg_ArgumentList();
+                        args = cfg_ArgumentList();
                     }
                     expectTokenType(TokenType.RParen);
                     expectTokenType(TokenType.Semicolon);
+                    return new CallStmt(reference, args, reference.posn);
                 }
             } else {
-                // Is a ref, parsed up till Reference[Expression]
+                // Is a ref with an index, parsed up till Reference[Expression]
+                Reference LHSRef = (Reference) parsedElements.get(0);
+                Expression indexExpression = (Expression) parsedElements.get(1);
                 expectTokenType(TokenType.Equals);
-                cfg_Expression();
+                Expression RHSExpression = cfg_Expression();
                 expectTokenType(TokenType.Semicolon);
+                return new IxAssignStmt(LHSRef, indexExpression, RHSExpression, LHSRef.posn);
             }
         } else if (lookAhead().type == TokenType.ThisKeyword) {
-            cfg_Reference();
+            Reference LHSRef = cfg_Reference();
             if (lookAhead().type == TokenType.Equals) {
                 expectTokenType(TokenType.Equals);
-                cfg_Expression();
+                Expression expression = cfg_Expression();
                 expectTokenType(TokenType.Semicolon);
+                return new AssignStmt(LHSRef, expression, LHSRef.posn);
             } else if (lookAhead().type == TokenType.LBrack) {
                 expectTokenType(TokenType.LBrack);
-                cfg_Expression();
+                Expression indexExpression = cfg_Expression();
                 expectTokenType(TokenType.RBrack);
                 expectTokenType(TokenType.Equals);
-                cfg_Expression();
+                Expression RHSExpression = cfg_Expression();
                 expectTokenType(TokenType.Semicolon);
-            } else if (lookAhead().type == TokenType.LParen) {
+                return new IxAssignStmt(LHSRef, indexExpression, RHSExpression, LHSRef.posn);
+            } else {
                 expectTokenType(TokenType.LParen);
+                ExprList args = null;
                 if (lookAhead().type != TokenType.RParen) {
-                    cfg_ArgumentList();
+                    args = cfg_ArgumentList();
                 }
                 expectTokenType(TokenType.RParen);
                 expectTokenType(TokenType.Semicolon);
+                return new CallStmt(LHSRef, args, LHSRef.posn);
             }
         } else {
-            cfg_Type();
-            expectTokenType(TokenType.Id);
+            TypeDenoter type = cfg_Type();
+            String name = expectTokenType(TokenType.Id).text;
             expectTokenType(TokenType.Equals);
-            cfg_Expression();
+            Expression expression = cfg_Expression();
             expectTokenType(TokenType.Semicolon);
+            return new VarDeclStmt(new VarDecl(type, name, type.posn), expression, type.posn);
         }
     }
-    private int cfg_RefOrId() throws IOException, TerminalParseException {
+    private List<AST> cfg_RefOrId() throws IOException, TerminalParseException {
         // When we expect a type or reference but lookahead was an id
-        expectTokenType(TokenType.Id);
+        List<AST> parsedElements = new ArrayList<AST>(2);
+        Token idToken = expectTokenType(TokenType.Id);
         if (lookAhead().type == TokenType.Id) {
-            return 0;
+            // Is a type
+            parsedElements.add(new ClassType(new Identifier(idToken), idToken.getTokenPosition()));
+            return parsedElements;
         } else if (lookAhead().type == TokenType.LBrack) {
             // Could still be either
             expectTokenType(TokenType.LBrack);
             if (lookAhead().type == TokenType.RBrack) {
                 // This is a type
                 expectTokenType(TokenType.RBrack);
-                return 0;
+                parsedElements.add(new ArrayType(new ClassType(new Identifier(idToken), idToken.getTokenPosition()), idToken.getTokenPosition()));
+                return parsedElements;
             } else {
                 // This is a reference
-                cfg_Expression();
+                Expression indexExpression = cfg_Expression();
+                parsedElements.add(new IdRef(new Identifier(idToken), idToken.getTokenPosition()));
+                parsedElements.add(indexExpression);
                 expectTokenType(TokenType.RBrack);
-                return 2;
+                return parsedElements;
             }
         } else {
             // This is a reference
-            int type = 1;
+            Reference ref = new IdRef(new Identifier(idToken), idToken.getTokenPosition());
             while (lookAhead().type == TokenType.Dot && lookAhead().type != TokenType.EOT) {
                 expectTokenType(TokenType.Dot);
-                expectTokenType(TokenType.Id);
+                ref = new QualRef(ref, new Identifier(expectTokenType(TokenType.Id)), ref.posn);
             }
+            parsedElements.add(ref);
             if (lookAhead().type == TokenType.LBrack) {
-                type = 2;
                 expectTokenType(TokenType.LBrack);
-                cfg_Expression();
+                Expression indexExpression = cfg_Expression();
+                parsedElements.add(indexExpression);
                 expectTokenType(TokenType.RBrack);
             }
-            return type;
+            return parsedElements;
         }
     }
 
@@ -348,98 +437,116 @@ public class Parser {
     Set<String> ops6 = Set.of("-", "!");
     // precedence 7 is everything else
 
-    private void cfg_Expression() throws IOException, TerminalParseException {
-        cfg_Expression1();
+    private Expression cfg_Expression() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression1();
         while (lookAhead().type == TokenType.BinOp && lookAhead().text.equals(op0)) {
-            expectTokenTypeAndText(TokenType.BinOp, op0);
-            cfg_Expression1();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, op0));
+            expression = new BinaryExpr(operator, expression, cfg_Expression1(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression1() throws IOException, TerminalParseException {
-        cfg_Expression2();
+    private Expression cfg_Expression1() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression2();
         while (lookAhead().type == TokenType.BinOp && lookAhead().text.equals(op1)) {
-            expectTokenTypeAndText(TokenType.BinOp, op1);
-            cfg_Expression2();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, op1));
+            expression = new BinaryExpr(operator, expression, cfg_Expression2(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression2() throws IOException, TerminalParseException {
-        cfg_Expression3();
+    private Expression cfg_Expression2() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression3();
         while (lookAhead().type == TokenType.BinOp && ops2.contains(lookAhead().text)) {
-            expectTokenTypeAndText(TokenType.BinOp, ops2);
-            cfg_Expression3();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, ops2));
+            expression = new BinaryExpr(operator, expression, cfg_Expression3(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression3() throws IOException, TerminalParseException {
-        cfg_Expression4();
+    private Expression cfg_Expression3() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression4();
         while (lookAhead().type == TokenType.BinOp && ops3.contains(lookAhead().text)) {
-            expectTokenTypeAndText(TokenType.BinOp, ops3);
-            cfg_Expression4();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, ops3));
+            expression = new BinaryExpr(operator, expression, cfg_Expression4(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression4() throws IOException, TerminalParseException {
-        cfg_Expression5();
+    private Expression cfg_Expression4() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression5();
         while (lookAhead().type == TokenType.BinOp && ops4.contains(lookAhead().text)) {
-            expectTokenTypeAndText(TokenType.BinOp, ops4);
-            cfg_Expression5();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, ops4));
+            expression = new BinaryExpr(operator, expression, cfg_Expression5(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression5() throws IOException, TerminalParseException {
-        cfg_Expression6();
+    private Expression cfg_Expression5() throws IOException, TerminalParseException {
+        Expression expression = cfg_Expression6();
         while (lookAhead().type == TokenType.BinOp && ops5.contains(lookAhead().text)) {
-            expectTokenTypeAndText(TokenType.BinOp, ops5);
-            cfg_Expression6();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.BinOp, ops5));
+            expression = new BinaryExpr(operator, expression, cfg_Expression6(), expression.posn);
         }
+        return expression;
     }
-    private void cfg_Expression6() throws IOException, TerminalParseException {
+    private Expression cfg_Expression6() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.UnOp && ops6.contains(lookAhead().text)) {
-            expectTokenTypeAndText(TokenType.UnOp, ops6);
-            cfg_Expression6();
+            Operator operator = new Operator(expectTokenTypeAndText(TokenType.UnOp, ops6));
+            return new UnaryExpr(operator, cfg_Expression6(), operator.posn);
         } else {
-            cfg_Expression7();
+            return cfg_Expression7();
         }
     }
 
-    private void cfg_Expression7() throws IOException, TerminalParseException {
+    private Expression cfg_Expression7() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.Id || lookAhead().type == TokenType.ThisKeyword) {
-            cfg_Reference();
+            Reference reference = cfg_Reference();
             if (lookAhead().type == TokenType.LBrack) {
                 expectTokenType(TokenType.LBrack);
-                cfg_Expression();
+                Expression indexExpression = cfg_Expression();
                 expectTokenType(TokenType.RBrack);
+                return new IxExpr(reference, indexExpression, reference.posn);
             } else if (lookAhead().type == TokenType.LParen) {
                 expectTokenType(TokenType.LParen);
+                ExprList args = null;
                 if (lookAhead().type != TokenType.RParen) {
-                    cfg_ArgumentList();
+                    args = cfg_ArgumentList();
                 }
                 expectTokenType(TokenType.RParen);
+                return new CallExpr(reference, args, reference.posn);
+            } else {
+                return new RefExpr(reference, reference.posn);
             }
         } else if (lookAhead().type == TokenType.LParen) {
             expectTokenType(TokenType.LParen);
-            cfg_Expression();
+            Expression expression = cfg_Expression();
             expectTokenType(TokenType.RParen);
+            return expression;
         } else if (lookAhead().type == TokenType.Num) {
-            expectTokenType(TokenType.Num);
+            Token numToken = expectTokenType(TokenType.Num);
+            return new LiteralExpr(new IntLiteral(numToken), numToken.getTokenPosition());
         } else if (lookAhead().type == TokenType.TrueKeyword) {
-            expectTokenType(TokenType.TrueKeyword);
+            Token trueToken = expectTokenType(TokenType.TrueKeyword);
+            return new LiteralExpr(new BooleanLiteral(trueToken), trueToken.getTokenPosition());
         } else if (lookAhead().type == TokenType.FalseKeyword) {
-            expectTokenType(TokenType.FalseKeyword);
+            Token falseToken = expectTokenType(TokenType.FalseKeyword);
+            return new LiteralExpr(new BooleanLiteral(falseToken), falseToken.getTokenPosition());
         } else {
-            expectTokenType(TokenType.NewKeyword);
+            SourcePosition pos = expectTokenType(TokenType.NewKeyword).getTokenPosition();
             if (lookAhead().type == TokenType.Id) {
-                expectTokenType(TokenType.Id);
+                Token idToken = expectTokenType(TokenType.Id);
                 if (lookAhead().type == TokenType.LParen) {
                     expectTokenType(TokenType.LParen);
                     expectTokenType(TokenType.RParen);
+                    return new NewObjectExpr(new ClassType(new Identifier(idToken), idToken.getTokenPosition()), pos);
                 } else {
                     expectTokenType(TokenType.LBrack);
-                    cfg_Expression();
+                    Expression indexExpression = cfg_Expression();
                     expectTokenType(TokenType.RBrack);
+                    return new NewArrayExpr(new ClassType(new Identifier(idToken), idToken.getTokenPosition()), indexExpression, pos);
                 }
             } else {
-                expectTokenType(TokenType.IntKeyword);
+                Token intToken = expectTokenType(TokenType.IntKeyword);
                 expectTokenType(TokenType.LBrack);
-                cfg_Expression();
+                Expression indexExpression = cfg_Expression();
                 expectTokenType(TokenType.RBrack);
+                return new NewArrayExpr(new BaseType(TypeKind.INT, intToken.getTokenPosition()), indexExpression, pos);
             }
         }
     }
