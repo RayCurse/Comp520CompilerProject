@@ -101,6 +101,10 @@ public class Scanner {
         this.fStream = fStream;
     }
 
+    public SourcePosition getCurrentPosition() {
+        return new SourcePosition(currentLineNumber, currentColumnNumber);
+    }
+
     private TokenType prevTokenType = null;
     public Token scan() throws IOException {
         if (!consumeWhitespaceAndComments()) {
