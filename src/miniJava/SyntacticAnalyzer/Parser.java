@@ -154,13 +154,13 @@ public class Parser {
     private MemberDecl cfg_ClassMemberDeclaration() throws IOException, TerminalParseException {
         boolean isMethod = false;
         Token visibilityToken = cfg_Visibility();
-        Boolean isPrivate = visibilityToken.text.equals("private");
+        Boolean isPrivate = visibilityToken != null && visibilityToken.text.equals("private");
+        Token accessToken = cfg_Access();
         Boolean isStatic = false;
-        TypeDenoter type = null;
-        SourcePosition pos = visibilityToken.getTokenPosition();
-        if (cfg_Access() != null) {
+        if (accessToken != null) {
             isStatic = true;
         }
+        TypeDenoter type = null;
         if (lookAhead().type == TokenType.VoidKeyword) {
             // must be method since void only applies to methods
             isMethod = true;
@@ -168,6 +168,14 @@ public class Parser {
             type = new BaseType(TypeKind.VOID, typePos);
         } else {
             type = cfg_Type();
+        }
+        SourcePosition pos;
+        if (visibilityToken != null) {
+            pos = visibilityToken.getTokenPosition();
+        } else if (accessToken != null) {
+            pos = accessToken.getTokenPosition();
+        } else {
+            pos = type.posn;
         }
         String name = expectTokenType(TokenType.Id).text;
         FieldDecl fieldDecl = new FieldDecl(isPrivate, isStatic, type, name, pos);
@@ -198,9 +206,10 @@ public class Parser {
     private Token cfg_Visibility() throws IOException, TerminalParseException {
         if (lookAhead().type == TokenType.PublicKeyword) {
             return expectTokenType(TokenType.PublicKeyword);
-        } else {
+        } else if (lookAhead().type == TokenType.PrivateKeyword) {
             return expectTokenType(TokenType.PrivateKeyword);
         }
+        return null;
     }
 
     private Token cfg_Access() throws IOException, TerminalParseException {
@@ -336,6 +345,8 @@ public class Parser {
                     ExprList args = null;
                     if (lookAhead().type != TokenType.RParen) {
                         args = cfg_ArgumentList();
+                    } else {
+                        args = new ExprList();
                     }
                     expectTokenType(TokenType.RParen);
                     expectTokenType(TokenType.Semicolon);
@@ -370,6 +381,8 @@ public class Parser {
                 ExprList args = null;
                 if (lookAhead().type != TokenType.RParen) {
                     args = cfg_ArgumentList();
+                } else {
+                    args = new ExprList();
                 }
                 expectTokenType(TokenType.RParen);
                 expectTokenType(TokenType.Semicolon);
@@ -507,6 +520,8 @@ public class Parser {
                 ExprList args = null;
                 if (lookAhead().type != TokenType.RParen) {
                     args = cfg_ArgumentList();
+                } else {
+                    args = new ExprList();
                 }
                 expectTokenType(TokenType.RParen);
                 return new CallExpr(reference, args, reference.posn);
