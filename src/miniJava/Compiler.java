@@ -26,8 +26,7 @@ public class Compiler {
             // parser.printTokens = true;
             Package AST = parser.parseTokenStream();
             if (AST != null) {
-                System.out.println("Success");
-                ASTDisplay.showPosition = true;
+                // ASTDisplay.showPosition = true;
                 ASTDisplay display = new ASTDisplay();
                 display.showTree(AST);
             } else {
