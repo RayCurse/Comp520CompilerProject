@@ -21,6 +21,7 @@ public enum TokenType {
     TrueKeyword,
     FalseKeyword,
     NewKeyword,
+    NullKeyword,
 
     LParen,
     RParen,

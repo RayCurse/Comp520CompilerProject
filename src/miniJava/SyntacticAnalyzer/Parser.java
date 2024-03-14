@@ -542,6 +542,9 @@ public class Parser {
         } else if (lookAhead().type == TokenType.FalseKeyword) {
             Token falseToken = expectTokenType(TokenType.FalseKeyword);
             return new LiteralExpr(new BooleanLiteral(falseToken), falseToken.getTokenPosition());
+        } else if (lookAhead().type == TokenType.NullKeyword) {
+            Token nullToken = expectTokenType(TokenType.NullKeyword);
+            return new LiteralExpr(new NullLiteral(nullToken), nullToken.getTokenPosition());
         } else {
             SourcePosition pos = expectTokenType(TokenType.NewKeyword).getTokenPosition();
             if (lookAhead().type == TokenType.Id) {

@@ -211,7 +211,8 @@ public class Scanner {
         Map.entry("while", TokenType.WhileKeyword),
         Map.entry("true", TokenType.TrueKeyword),
         Map.entry("false", TokenType.FalseKeyword),
-        Map.entry("new", TokenType.NewKeyword)
+        Map.entry("new", TokenType.NewKeyword),
+        Map.entry("null", TokenType.NullKeyword)
     );
 
     // from examining the grammar, only the following tokens may come before a UnOp in a valid string:
