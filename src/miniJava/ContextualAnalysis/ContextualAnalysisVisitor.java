@@ -174,12 +174,16 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	@Override
 	public Void visitVardeclStmt(VarDeclStmt stmt, Environment env) {
         stmt.varDecl.visit(this, env);
+        env.currentDeclaringIdentifier = stmt.varDecl.name;
+
         stmt.initExp.visit(this, env);
         // If identification error in class type in varDecl, then we still report the type error even though we should ignore it
         // Maybe fix this later, but not important
         if (stmt.initExp.type != null && stmt.initExp.type.typeKind != TypeKind.ERROR && !stmt.varDecl.type.equals(stmt.initExp.type)) {
             env.errorMessages.add(String.format("Type error at %s, variable and value type do not match", stmt.posn));
         }
+
+        env.currentDeclaringIdentifier = null;
         return null;
 	}
 
@@ -442,6 +446,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         ref.id.declaration = env.findDeclaration(ref.id);
         if (ref.id.declaration != null) {
             ref.type = ref.id.declaration.type;
+            if (ref.id.spelling.equals(env.currentDeclaringIdentifier)) {
+                env.errorMessages.add(String.format("Context error at %s, cannot use variable name \"%s\" in its own declaration", ref.id.posn, env.currentDeclaringIdentifier));
+            }
         }
         return null;
 	}

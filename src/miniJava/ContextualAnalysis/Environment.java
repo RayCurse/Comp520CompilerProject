@@ -4,11 +4,8 @@ import miniJava.AbstractSyntaxTrees.*;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenType;
 import java.util.Map;
-import java.util.Set;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 public class Environment {
@@ -212,5 +209,6 @@ public class Environment {
     public ClassDecl currentClass = null;
     public boolean isStaticContext = false; // are we in a static method (this is not for QualRefs)
     public boolean isMethodContext = false; // are we trying to find a method (this is needed since I initially implemented it where methods and fields could have the same name)
+    public String currentDeclaringIdentifier = null; // for ensuring that a variable name is not used in its own declaration
     public List<String> errorMessages = new ArrayList<String>();
 }
