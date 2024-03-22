@@ -1,13 +1,14 @@
 package miniJava.ContextualAnalysis;
 
-import java.util.Stack;
 import miniJava.AbstractSyntaxTrees.*;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenType;
-
 import java.util.Map;
+import java.util.Set;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 public class Environment {
@@ -17,13 +18,15 @@ public class Environment {
     private Map<String, ClassDecl> classes = new HashMap<String, ClassDecl>();
 
     // Level 1 scopes
-    // Fields and methods can have the same name
-    // Non static and static members can have the same name
+    // Fields and methods can have the same name in normal Java
+    // Non static and static members can have the same name in normal Java
     private Map<ClassDecl, Map<String, FieldDecl>> classFields = new HashMap<ClassDecl, Map<String, FieldDecl>>();
     private Map<ClassDecl, Map<String, MethodDecl>> classMethods = new HashMap<ClassDecl, Map<String, MethodDecl>>();
     private Map<ClassDecl, Map<String, FieldDecl>> staticClassFields = new HashMap<ClassDecl, Map<String, FieldDecl>>();
     private Map<ClassDecl, Map<String, MethodDecl>> staticClassMethods = new HashMap<ClassDecl, Map<String, MethodDecl>>();
 
+    // Initially implemented where static/non-static and field/method could have same name
+    // Later found out that MiniJava doesn't allow duplicates in any case, so added quick fix to addClass method
     private <T extends Declaration> void addToScope(Map<String, T> scope, T declaration) {
         String name = declaration.name;
         if (scope.containsKey(name)) {
@@ -123,6 +126,7 @@ public class Environment {
         return null;
     }
 
+    // Find decl in level 0 scope
     public ClassDecl findClass(Identifier id) {
         String name = id.spelling;
         if (classes.containsKey(name)) {
@@ -143,6 +147,18 @@ public class Environment {
         Map<String, MethodDecl> staticMethods = new HashMap<String, MethodDecl>();
 
         for (FieldDecl fieldDecl : classDecl.fieldDeclList) {
+            // For MiniJava, no duplicate name allowed in any case
+            // Use this if statement to report error on duplicates in this case
+            if (fields.containsKey(fieldDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", fieldDecl.posn, fieldDecl.name, fields.get(fieldDecl.name).posn));
+            } else if (methods.containsKey(fieldDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", fieldDecl.posn, fieldDecl.name, methods.get(fieldDecl.name).posn));
+            } else if (staticFields.containsKey(fieldDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", fieldDecl.posn, fieldDecl.name, staticFields.get(fieldDecl.name).posn));
+            } else if (staticMethods.containsKey(fieldDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", fieldDecl.posn, fieldDecl.name, staticMethods.get(fieldDecl.name).posn));
+            }
+
             if (fieldDecl.isStatic) {
                 addToScope(staticFields, fieldDecl);
             } else {
@@ -151,10 +167,21 @@ public class Environment {
         }
 
         for (MethodDecl methodDecl : classDecl.methodDeclList) {
+            // For MiniJava, no duplicate name allowed in any case
+            // Use this if statement to report error on duplicates in this case
+            if (fields.containsKey(methodDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", methodDecl.posn, methodDecl.name, fields.get(methodDecl.name).posn));
+            } else if (methods.containsKey(methodDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", methodDecl.posn, methodDecl.name, methods.get(methodDecl.name).posn));
+            } else if (staticFields.containsKey(methodDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", methodDecl.posn, methodDecl.name, staticFields.get(methodDecl.name).posn));
+            } else if (staticMethods.containsKey(methodDecl.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", methodDecl.posn, methodDecl.name, staticMethods.get(methodDecl.name).posn));
+            }
             if (methodDecl.isStatic) {
-                staticMethods.put(methodDecl.name, methodDecl);
+                addToScope(staticMethods, methodDecl);
             } else {
-                methods.put(methodDecl.name, methodDecl);
+                addToScope(methods, methodDecl);
             }
         }
         classFields.put(classDecl, fields);
@@ -165,7 +192,7 @@ public class Environment {
 
     // Other states to keep track of for the visitor
     public ClassDecl currentClass = null;
-    public boolean isStaticContext = false;
-    public boolean isMethodContext = false;
+    public boolean isStaticContext = false; // are we in a static method (this is not for QualRefs)
+    public boolean isMethodContext = false; // are we trying to find a method (this is needed since I initially implemented it where methods and fields could have the same name)
     public List<String> errorMessages = new ArrayList<String>();
 }
