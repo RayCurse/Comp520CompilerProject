@@ -39,7 +39,7 @@ public class Compiler {
             AST.visit(contextualAnalysisVisitor, env);
 
             ASTDisplay display = new ASTDisplay();
-            display.showTree(AST);
+            // display.showTree(AST);
 
             if (env.errorMessages.size() > 0) {
                 System.out.println("Error");

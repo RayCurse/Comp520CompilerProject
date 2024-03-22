@@ -24,13 +24,15 @@ abstract public class TypeDenoter extends AST {
         if (obj == null) {
             return false;
         }
+        if (obj instanceof TypeDenoter) {
+            if ((typeKind == TypeKind.VOID && ((TypeDenoter) obj).typeKind == TypeKind.CLASS) || (typeKind == TypeKind.CLASS && ((TypeDenoter) obj).typeKind == TypeKind.VOID)) {
+                return true;
+            }
+        }
         if (getClass() != obj.getClass()) {
             return false;
         }
         TypeDenoter other = (TypeDenoter) obj;
-        if ((typeKind == TypeKind.VOID && other.typeKind == TypeKind.CLASS) || (typeKind == TypeKind.CLASS && other.typeKind == TypeKind.VOID)) {
-            return true;
-        }
         if (typeKind != other.typeKind) {
             return false;
         }
