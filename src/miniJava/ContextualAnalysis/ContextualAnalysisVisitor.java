@@ -401,6 +401,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
 	@Override
 	public Void visitThisRef(ThisRef ref, Environment env) {
+        if (env.isStaticContext) {
+            env.errorMessages.add(String.format("Context error at %s, cannot refer to \"this\" in a static context", ref.posn));
+        }
         return null;
 	}
 
