@@ -114,6 +114,9 @@ public class Environment {
 
     // Add all class names, their fields and methods to level 0 and level 1 scopes initially
     public void addClass(ClassDecl classDecl) {
+        if (classes.containsKey(classDecl.name)) {
+            errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", classDecl.posn, classDecl.name, classes.get(classDecl.name).posn));
+        }
         classes.put(classDecl.name, classDecl);
         Map<String, FieldDecl> fields = new HashMap<String, FieldDecl>();
         Map<String, MethodDecl> methods = new HashMap<String, MethodDecl>();

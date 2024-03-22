@@ -14,6 +14,7 @@ class A {
 
 class B {
     static C ab;
+    static int ab;
     public static int method1(int d) {
         int a = A.d;
         ab = new C();
