@@ -71,6 +71,11 @@ public class Environment {
 
     public void addDeclaration(Declaration declaration) {
         Map<String, Declaration> topLevel = scopes.get(scopes.size() - 1);
+        for (Map<String, Declaration> scope : scopes) {
+            if (scope.containsKey(declaration.name)) {
+                errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", declaration.posn, declaration.name, scope.get(declaration.name).posn));
+            }
+        }
         addToScope(topLevel, declaration);
     }
 
