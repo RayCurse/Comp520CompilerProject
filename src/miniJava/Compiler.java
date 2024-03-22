@@ -6,6 +6,8 @@ import java.io.IOException;
 
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.AbstractSyntaxTrees.Package;
+import miniJava.ContextualAnalysis.ContextualAnalysisVisitor;
+import miniJava.ContextualAnalysis.Environment;
 import miniJava.SyntacticAnalyzer.Parser;
 import miniJava.SyntacticAnalyzer.Scanner;
 
@@ -25,13 +27,27 @@ public class Compiler {
             Parser parser = new Parser(scanner);
             // parser.printTokens = true;
             Package AST = parser.parseTokenStream();
-            if (AST != null) {
-                // ASTDisplay.showPosition = true;
-                ASTDisplay display = new ASTDisplay();
-                display.showTree(AST);
-            } else {
+            fStream.close();
+            if (AST == null) {
                 System.out.println("Error");
                 System.out.println(parser.getErrorMsg());
+                System.exit(0);
+            }
+
+            ContextualAnalysisVisitor contextualAnalysisVisitor = new ContextualAnalysisVisitor();
+            Environment env = new Environment();
+            AST.visit(contextualAnalysisVisitor, env);
+
+            // ASTDisplay display = new ASTDisplay();
+            // display.showTree(AST);
+
+            if (env.errorMessages.size() > 0) {
+                System.out.println("Error");
+                for (String errorMessage : env.errorMessages) {
+                    System.out.println(errorMessage);
+                }
+            } else {
+                System.out.println("Success");
             }
         } finally {
             if (fStream != null) { fStream.close(); }
