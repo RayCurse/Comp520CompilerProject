@@ -44,7 +44,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
                 return intTypeDenoter;
             }
         } else if (equalityOps.contains(op.spelling)) {
-            return booleanTypeDenoter;
+            if (lhs.equals(rhs)) {
+                return booleanTypeDenoter;
+            }
         }
         return errorTypeDenoter;
     }
