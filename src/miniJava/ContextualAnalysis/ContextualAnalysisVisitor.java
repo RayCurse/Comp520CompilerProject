@@ -135,6 +135,13 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
                 }
             }
         }
+
+        // Ensure that last statement is a return statement
+        if (md.statementList.size() > 0 && md.type.typeKind != TypeKind.VOID) {
+            if (!(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt)) {
+                env.errorMessages.add(String.format("Context error at %s, method must have a return statement", md.posn));
+            }
+        }
         return null;
 	}
 
