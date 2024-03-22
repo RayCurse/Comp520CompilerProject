@@ -18,21 +18,4 @@ public class Identifier extends Terminal {
       return v.visitIdentifier(this, o);
   }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (!super.equals(obj))
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        Identifier other = (Identifier) obj;
-        if (declaration == null) {
-            if (other.declaration != null)
-                return false;
-        } else if (!declaration.equals(other.declaration))
-            return false;
-        return true;
-    }
-
 }

@@ -138,6 +138,7 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
 	@Override
 	public Void visitParameterDecl(ParameterDecl pd, Environment env) {
+        pd.type.visit(this, env);
         env.addDeclaration(pd);
         return null;
 	}
