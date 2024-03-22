@@ -11,6 +11,9 @@ public class ClassType extends TypeDenoter
 {
     public ClassType(Identifier cn, SourcePosition posn){
         super(TypeKind.CLASS, posn);
+        if (cn.spelling.equals("String")) {
+            typeKind = TypeKind.UNSUPPORTED;
+        }
         className = cn;
     }
             

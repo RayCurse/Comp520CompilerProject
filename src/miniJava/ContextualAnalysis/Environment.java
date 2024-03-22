@@ -1,14 +1,9 @@
 package miniJava.ContextualAnalysis;
 
 import java.util.Stack;
-
-import miniJava.AbstractSyntaxTrees.ClassDecl;
-import miniJava.AbstractSyntaxTrees.ClassDeclList;
-import miniJava.AbstractSyntaxTrees.Declaration;
-import miniJava.AbstractSyntaxTrees.FieldDecl;
-import miniJava.AbstractSyntaxTrees.Identifier;
-import miniJava.AbstractSyntaxTrees.MemberDecl;
-import miniJava.AbstractSyntaxTrees.MethodDecl;
+import miniJava.AbstractSyntaxTrees.*;
+import miniJava.SyntacticAnalyzer.Token;
+import miniJava.SyntacticAnalyzer.TokenType;
 
 import java.util.Map;
 import java.util.ArrayList;
@@ -36,6 +31,30 @@ public class Environment {
             return;
         }
         scope.put(declaration.name, declaration);
+    }
+
+    // Init System, _PrintStream, and String in constructor
+    public Environment() {
+        MethodDeclList printStreamMethods = new MethodDeclList();
+        ParameterDeclList printlnParams = new ParameterDeclList();
+        printlnParams.add(new ParameterDecl(new BaseType(TypeKind.INT, null), "n", null));
+        printStreamMethods.add(new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null), printlnParams, new StatementList(), null));
+        ClassDecl printStream = new ClassDecl("_PrintStream", new FieldDeclList(), printStreamMethods, null);
+
+        FieldDeclList systemFields = new FieldDeclList();
+        Identifier printStreamIdentifier = new Identifier(new Token(TokenType.Id, "_PrintStream", null));
+        printStreamIdentifier.declaration = printStream;
+        systemFields.add(new FieldDecl(false, true, new ClassType(printStreamIdentifier, null), "out", null));
+        ClassDecl system = new ClassDecl("System", systemFields, new MethodDeclList(), null);
+
+        ClassDecl string = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(), null);
+
+        currentClass = system;
+        addClass(system);
+        currentClass = printStream;
+        addClass(printStream);
+        currentClass = string;
+        addClass(string);
     }
 
     // Local var scopes
