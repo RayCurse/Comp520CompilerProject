@@ -18,6 +18,7 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
     final private static BaseType booleanTypeDenoter = new BaseType(TypeKind.BOOLEAN, null);
     final private static BaseType voidTypeDenoter = new BaseType(TypeKind.VOID, null);
     final private static BaseType errorTypeDenoter = new BaseType(TypeKind.ERROR, null);
+    final private static BaseType unsupportedTypeDenoter = new BaseType(TypeKind.UNSUPPORTED, null);
 
     private static ClassType classTypeDenoter(ClassDecl classDecl) {
         return new ClassType(new Identifier(new Token(TokenType.Id, classDecl.name, null)), null);
@@ -293,7 +294,11 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         } else if (expr.ref instanceof IdRef) {
             Declaration declaration = ((IdRef) expr.ref).id.declaration;
             if (declaration != null) {
-                expr.type = declaration.type;
+                if (declaration instanceof ClassDecl) {
+                    expr.type = unsupportedTypeDenoter; // The class metatype is unsupported
+                } else {
+                    expr.type = declaration.type;
+                }
             }
         } else {
             Declaration declaration = ((QualRef) expr.ref).id.declaration;
