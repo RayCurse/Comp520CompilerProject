@@ -119,6 +119,18 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
         for (Statement statement : md.statementList) {
             statement.visit(this, env);
+            if (statement instanceof ReturnStmt) {
+                Expression returnExpression = ((ReturnStmt) statement).returnExpr;
+                if (returnExpression != null) {
+                    if (returnExpression.type != null && returnExpression.type.typeKind != TypeKind.ERROR && !returnExpression.type.equals(md.type)) {
+                        env.errorMessages.add(String.format("Type error at %s, invalid return type", statement.posn));
+                    }
+                } else {
+                    if (md.type.typeKind != TypeKind.VOID) {
+                        env.errorMessages.add(String.format("Type error at %s, no return value", statement.posn));
+                    }
+                }
+            }
         }
         return null;
 	}
@@ -225,7 +237,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
 	@Override
 	public Void visitReturnStmt(ReturnStmt stmt, Environment env) {
-        stmt.returnExpr.visit(this, env);
+        if (stmt.returnExpr != null) {
+            stmt.returnExpr.visit(this, env);
+        }
         return null;
 	}
 
@@ -385,7 +399,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	@Override
 	public Void visitIdRef(IdRef ref, Environment env) {
         ref.id.declaration = env.findDeclaration(ref.id);
-        ref.type = ref.id.declaration.type;
+        if (ref.id.declaration != null) {
+            ref.type = ref.id.declaration.type;
+        }
         return null;
 	}
 
