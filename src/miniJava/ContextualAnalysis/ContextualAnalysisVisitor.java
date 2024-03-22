@@ -161,11 +161,13 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
 	@Override
 	public Void visitBlockStmt(BlockStmt stmt, Environment env) {
+        // Visit statements
         env.openScope();
         for (Statement statement : stmt.sl) {
             statement.visit(this, env);
         }
         env.closeScope();
+
         return null;
 	}
 
@@ -257,23 +259,38 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	@Override
 	public Void visitIfStmt(IfStmt stmt, Environment env) {
         stmt.cond.visit(this, env);
-        stmt.thenStmt.visit(this, env);
-        if (stmt.elseStmt != null) {
-            stmt.elseStmt.visit(this, env);
-        }
         if (stmt.cond.type.typeKind != TypeKind.BOOLEAN) {
             env.errorMessages.add(String.format("Type error at %s, if statement condition must be a boolean", stmt.cond.posn));
         }
+
+        if (stmt.thenStmt instanceof VarDeclStmt) {
+            env.errorMessages.add(String.format("Context error at %s, cannot have a scope with only a single declaration statement", stmt.thenStmt.posn));
+            return null;
+        }
+        stmt.thenStmt.visit(this, env);
+
+        if (stmt.elseStmt != null) {
+            if (stmt.elseStmt instanceof VarDeclStmt) {
+                env.errorMessages.add(String.format("Context error at %s, cannot have a scope with only a single declaration statement", stmt.elseStmt.posn));
+            }
+            stmt.elseStmt.visit(this, env);
+        }
+
         return null;
 	}
 
 	@Override
 	public Void visitWhileStmt(WhileStmt stmt, Environment env) {
         stmt.cond.visit(this, env);
-        stmt.body.visit(this, env);
         if (stmt.cond.type.typeKind != TypeKind.BOOLEAN) {
             env.errorMessages.add(String.format("Type error at %s, while statement condition must be a boolean", stmt.cond.posn));
         }
+
+        stmt.body.visit(this, env);
+        if (stmt.body instanceof VarDeclStmt) {
+            env.errorMessages.add(String.format("Context error at %s, cannot have a scope with only a single declaration statement", stmt.body.posn));
+        }
+
         return null;
 	}
 
