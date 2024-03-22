@@ -18,4 +18,22 @@ abstract public class Terminal extends AST {
 
   public TokenType kind;
   public String spelling;
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Terminal other = (Terminal) obj;
+        if (kind != other.kind)
+            return false;
+        if (spelling == null) {
+            if (other.spelling != null)
+                return false;
+        } else if (!spelling.equals(other.spelling))
+            return false;
+        return true;
+    }
 }

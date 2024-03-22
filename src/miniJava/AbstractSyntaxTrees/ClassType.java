@@ -19,4 +19,28 @@ public class ClassType extends TypeDenoter
     }
 
     public Identifier className;
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!super.equals(obj)) {
+            return false;
+        }
+        if (obj instanceof TypeDenoter && ((TypeDenoter) obj).typeKind == TypeKind.VOID) {
+            return true;
+        }
+        if (getClass() != obj.getClass())
+            return false;
+        ClassType other = (ClassType) obj;
+        if (className == null) {
+            if (other.className != null) {
+                return false;
+            }
+        } else if (!className.equals(other.className)) {
+            return false;
+        }
+        return true;
+    }
 }

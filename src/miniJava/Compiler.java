@@ -38,8 +38,8 @@ public class Compiler {
             Environment env = new Environment();
             AST.visit(contextualAnalysisVisitor, env);
 
-            // ASTDisplay display = new ASTDisplay();
-            // display.showTree(AST);
+            ASTDisplay display = new ASTDisplay();
+            display.showTree(AST);
 
             if (env.errorMessages.size() > 0) {
                 System.out.println("Error");

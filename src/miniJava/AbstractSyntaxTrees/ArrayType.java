@@ -20,5 +20,22 @@ public class ArrayType extends TypeDenoter {
 	    }
 
 	    public TypeDenoter eltType;
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (!super.equals(obj))
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            ArrayType other = (ArrayType) obj;
+            if (eltType == null) {
+                if (other.eltType != null)
+                    return false;
+            } else if (!eltType.equals(other.eltType))
+                return false;
+            return true;
+        }
 	}
 

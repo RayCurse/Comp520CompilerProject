@@ -1,10 +1,73 @@
 package miniJava.ContextualAnalysis;
 
+import java.util.Set;
 import miniJava.AbstractSyntaxTrees.*;
 import miniJava.AbstractSyntaxTrees.Package;
+import miniJava.SyntacticAnalyzer.Token;
+import miniJava.SyntacticAnalyzer.TokenType;
 
 public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 
+    // Helper methods
+    final private static Set<String> logicalOps = Set.of("&&", "||");
+    final private static Set<String> inequalityOps = Set.of(">", ">=", "<", "<=");
+    final private static Set<String> arithmeticOps = Set.of("+", "-", "*", "/");
+    final private static Set<String> equalityOps = Set.of("==", "!=");
+
+    final private static BaseType intTypeDenoter = new BaseType(TypeKind.INT, null);
+    final private static BaseType booleanTypeDenoter = new BaseType(TypeKind.BOOLEAN, null);
+    final private static BaseType voidTypeDenoter = new BaseType(TypeKind.VOID, null);
+    final private static BaseType errorTypeDenoter = new BaseType(TypeKind.ERROR, null);
+
+    private static ClassType classTypeDenoter(ClassDecl classDecl) {
+        return new ClassType(new Identifier(new Token(TokenType.Id, classDecl.name, null)), null);
+    }
+
+    private static TypeDenoter getResultType(TypeDenoter lhs, TypeDenoter rhs, Operator op) {
+        // For binary operators
+        if (lhs == null || rhs == null) {
+            return null;
+        }
+        if (lhs.typeKind == TypeKind.ERROR || lhs.typeKind == TypeKind.UNSUPPORTED || rhs.typeKind == TypeKind.ERROR || rhs.typeKind == TypeKind.UNSUPPORTED) {
+            return errorTypeDenoter;
+        } else if (logicalOps.contains(op.spelling)) {
+            if (lhs.typeKind == TypeKind.BOOLEAN && rhs.typeKind == TypeKind.BOOLEAN) {
+                return booleanTypeDenoter;
+            }
+        } else if (inequalityOps.contains(op.spelling)) {
+            if (lhs.typeKind == TypeKind.INT && rhs.typeKind == TypeKind.INT) {
+                return booleanTypeDenoter;
+            }
+        } else if (arithmeticOps.contains(op.spelling)) {
+            if (lhs.typeKind == TypeKind.INT && rhs.typeKind == TypeKind.INT) {
+                return intTypeDenoter;
+            }
+        } else if (equalityOps.contains(op.spelling)) {
+            return booleanTypeDenoter;
+        }
+        return errorTypeDenoter;
+    }
+    private static TypeDenoter getResultType(TypeDenoter valueType, Operator op) {
+        // For unary operators
+        if (valueType == null) {
+            return null;
+        }
+        if (valueType.typeKind == TypeKind.ERROR || valueType.typeKind == TypeKind.UNSUPPORTED) {
+            return errorTypeDenoter;
+        } else if (op.spelling.equals("-")) {
+            if (valueType.typeKind == TypeKind.INT) {
+                return intTypeDenoter;
+            }
+        } else if (op.spelling.equals("!")) {
+            if (valueType.typeKind == TypeKind.BOOLEAN) {
+                return booleanTypeDenoter;
+            }
+        }
+        return errorTypeDenoter;
+    }
+
+    // Visitor methods
+    // Once we visit something, assume that all identifiers in it have declaration field and all expresssions in it have type field
 	@Override
 	public Void visitPackage(Package prog, Environment env) {
         // Pre populate scopes for level 0 and level 1
@@ -86,16 +149,22 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	@Override
 	public Void visitVardeclStmt(VarDeclStmt stmt, Environment env) {
         stmt.varDecl.visit(this, env);
-        // type check TODO: check LHS and RHS type are same
         stmt.initExp.visit(this, env);
+        // If identification error in class type in varDecl, then we still report the type error even though we should ignore it
+        // Maybe fix this later, but not important
+        if (stmt.initExp.type != null && stmt.initExp.type.typeKind != TypeKind.ERROR && !stmt.varDecl.type.equals(stmt.initExp.type)) {
+            env.errorMessages.add(String.format("Type error at %s, variable and value type do not match", stmt.posn));
+        }
         return null;
 	}
 
 	@Override
 	public Void visitAssignStmt(AssignStmt stmt, Environment env) {
         stmt.ref.visit(this, env);
-        // type check TODO: check LHS and RHS type are same
         stmt.val.visit(this, env);
+        if (stmt.ref.type != null && stmt.val.type != null && stmt.ref.type.typeKind != TypeKind.ERROR && stmt.val.type.typeKind != TypeKind.ERROR && !stmt.ref.type.equals(stmt.val.type)) {
+            env.errorMessages.add(String.format("Type error at %s, variable and value type do not match", stmt.posn));
+        }
         return null;
 	}
 
@@ -104,8 +173,16 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         stmt.ix.visit(this, env);
         stmt.ref.visit(this, env);
         stmt.exp.visit(this, env);
-        // type check TODO: check ix expression is int
-        // type check TODO: check LHS and RHS type are same
+
+        if (stmt.ref.type != null && stmt.ix.type != null && stmt.exp.type != null) {
+            if (stmt.ref.type.typeKind != TypeKind.ARRAY) {
+                env.errorMessages.add(String.format("Type error at %s, not indexable", stmt.posn));
+            } else if (stmt.ix.type.typeKind != TypeKind.INT) {
+                env.errorMessages.add(String.format("Type error at %s, index must be an int", stmt.posn));
+            } else if (!stmt.exp.type.equals(((ArrayType) stmt.ref.type).eltType)) {
+                env.errorMessages.add(String.format("Type error at %s, array element type and value do not match", stmt.posn));
+            }
+        }
         return null;
 	}
 
@@ -114,8 +191,34 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         env.isMethodContext = true;
         stmt.methodRef.visit(this, env);
         env.isMethodContext = false;
-        for (Expression expression : stmt.argList) {
-            expression.visit(this, env);
+
+        // Get method declaration
+        MethodDecl methodDeclaration = null;
+        if (stmt.methodRef instanceof ThisRef) {
+            env.errorMessages.add(String.format("Type error at %s, invalid method", stmt.posn));
+        } else if (stmt.methodRef instanceof IdRef) {
+            methodDeclaration = (MethodDecl) ((IdRef) stmt.methodRef).id.declaration;
+        } else {
+            methodDeclaration = (MethodDecl) ((QualRef) stmt.methodRef).id.declaration;
+        }
+
+        // Type check arguments
+        if (methodDeclaration != null) {
+            if (methodDeclaration.parameterDeclList.size() != stmt.argList.size()) {
+                env.errorMessages.add(String.format("Type error at %s, invalid arguments", stmt.posn));
+            } else {
+                for (int i = 0; i < methodDeclaration.parameterDeclList.size(); i++) {
+                    ParameterDecl parameter = methodDeclaration.parameterDeclList.get(i);
+                    Expression arg = stmt.argList.get(i);
+                    arg.visit(this, env);
+                    if (arg.type != null && arg.type.typeKind == TypeKind.ERROR) {
+                        break;
+                    } else if (arg.type != null && !parameter.type.equals(arg.type)) {
+                        env.errorMessages.add(String.format("Type error at %s, invalid arguments", stmt.posn));
+                        break;
+                    }
+                }
+            }
         }
         return null;
 	}
@@ -146,7 +249,12 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	@Override
 	public Void visitUnaryExpr(UnaryExpr expr, Environment env) {
         expr.expr.visit(this, env);
-        // type check TODO: check type
+        expr.type = getResultType(expr.expr.type, expr.operator);
+        if (expr.expr.type != null) {
+            if (expr.expr.type.typeKind != TypeKind.ERROR && expr.type.typeKind == TypeKind.ERROR) {
+                env.errorMessages.add(String.format("Type error at %s", expr.posn));
+            }
+        }
         return null;
 	}
 
@@ -154,13 +262,31 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	public Void visitBinaryExpr(BinaryExpr expr, Environment env) {
         expr.left.visit(this, env);
         expr.right.visit(this, env);
-        // type check TODO: check type
+        expr.type = getResultType(expr.left.type, expr.right.type, expr.operator);
+        if (expr.left.type != null && expr.right.type != null) {
+            if ((expr.left.type.typeKind != TypeKind.ERROR && expr.right.type.typeKind != TypeKind.ERROR) && (expr.type.typeKind == TypeKind.ERROR)) {
+                env.errorMessages.add(String.format("Type error at %s", expr.posn));
+            }
+        }
         return null;
 	}
 
 	@Override
 	public Void visitRefExpr(RefExpr expr, Environment env) {
         expr.ref.visit(this, env);
+        if (expr.ref instanceof ThisRef) {
+            expr.type = classTypeDenoter(env.currentClass);
+        } else if (expr.ref instanceof IdRef) {
+            Declaration declaration = ((IdRef) expr.ref).id.declaration;
+            if (declaration != null) {
+                expr.type = declaration.type;
+            }
+        } else {
+            Declaration declaration = ((QualRef) expr.ref).id.declaration;
+            if (declaration != null) {
+                expr.type = declaration.type;
+            }
+        }
         return null;
 	}
 
@@ -168,7 +294,17 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	public Void visitIxExpr(IxExpr expr, Environment env) {
         expr.ref.visit(this, env);
         expr.ixExpr.visit(this, env);
-        // type check TODO: check index is int, check ref is array type
+        if (expr.ref.type == null || expr.ixExpr.type == null) {
+            expr.type = null;
+        } else if (expr.ref.type.typeKind != TypeKind.ARRAY) {
+            env.errorMessages.add(String.format("Type error at %s, not indexable", expr.posn));
+            expr.type = errorTypeDenoter;
+        } else if (expr.ixExpr.type.typeKind != TypeKind.INT) {
+            env.errorMessages.add(String.format("Type error at %s, index must be an int", expr.posn));
+            expr.type = errorTypeDenoter;
+        } else {
+            expr.type = ((ArrayType) expr.ref.type).eltType;
+        }
         return null;
 	}
 
@@ -177,9 +313,45 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         env.isMethodContext = true;
         expr.functionRef.visit(this, env);
         env.isMethodContext = false;
-        for (Expression expression : expr.argList) {
-            expression.visit(this, env);
+
+        // Get method declaration
+        MethodDecl methodDeclaration = null;
+        if (expr.functionRef instanceof ThisRef) {
+            env.errorMessages.add(String.format("Type error at %s, invalid method", expr.posn));
+        } else if (expr.functionRef instanceof IdRef) {
+            methodDeclaration = (MethodDecl) ((IdRef) expr.functionRef).id.declaration;
+        } else {
+            methodDeclaration = (MethodDecl) ((QualRef) expr.functionRef).id.declaration;
         }
+
+        // Type check arguments
+        if (methodDeclaration != null) {
+            boolean argsCorrect = true;
+            if (methodDeclaration.parameterDeclList.size() != expr.argList.size()) {
+                argsCorrect = false;
+                env.errorMessages.add(String.format("Type error at %s, invalid arguments", expr.posn));
+            } else {
+                for (int i = 0; i < methodDeclaration.parameterDeclList.size(); i++) {
+                    ParameterDecl parameter = methodDeclaration.parameterDeclList.get(i);
+                    Expression arg = expr.argList.get(i);
+                    arg.visit(this, env);
+                    if (arg.type != null && arg.type.typeKind == TypeKind.ERROR) {
+                        argsCorrect = false;
+                        break;
+                    } else if (arg.type != null && !parameter.type.equals(arg.type)) {
+                        env.errorMessages.add(String.format("Type error at %s, invalid arguments", expr.posn));
+                        argsCorrect = false;
+                        break;
+                    }
+                }
+            }
+            if (argsCorrect) {
+                expr.type = methodDeclaration.type;
+            } else {
+                expr.type = errorTypeDenoter;
+            }
+        }
+
         return null;
 	}
 
@@ -187,26 +359,33 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	public Void visitNewObjectExpr(NewObjectExpr expr, Environment env) {
         // No type checking needed here; it's already a class type
         expr.classtype.visit(this, env);
+        expr.type = expr.classtype;
         return null;
 	}
 
 	@Override
 	public Void visitNewArrayExpr(NewArrayExpr expr, Environment env) {
-        // No type checking needed here; should already be an int or class type from the parsing
         expr.eltType.visit(this, env);
+        expr.sizeExpr.visit(this, env);
+        if (expr.sizeExpr.type != null) {
+            if (expr.sizeExpr.type.typeKind != TypeKind.INT) {
+                env.errorMessages.add(String.format("Type error at %s, size must be an int", expr.posn));
+            } else {
+                expr.type =  new ArrayType(expr.eltType, null);
+            }
+        }
         return null;
 	}
 
 	@Override
 	public Void visitThisRef(ThisRef ref, Environment env) {
-        // type check TODO, check if env is method context
         return null;
 	}
 
 	@Override
 	public Void visitIdRef(IdRef ref, Environment env) {
-        // type check TODO, check if env is method context
         ref.id.declaration = env.findDeclaration(ref.id);
+        ref.type = ref.id.declaration.type;
         return null;
 	}
 
@@ -270,8 +449,11 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
                 }
             }
         }
-
         env.isMethodContext = isMethodContext;
+
+        if (ref.id.declaration != null) {
+            ref.type = ref.id.declaration.type;
+        }
         return null;
 	}
 
@@ -290,11 +472,24 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         return null;
     }
 
-	@Override public Void visitIdentifier(Identifier id, Environment env) { return null; }
-	@Override public Void visitBaseType(BaseType type, Environment env) { return null; }
+    @Override public Void visitLiteralExpr(LiteralExpr expr, Environment env) {
+        if (expr.lit instanceof NullLiteral) {
+            expr.type = voidTypeDenoter;
+        } else if (expr.lit instanceof BooleanLiteral) {
+            expr.type = booleanTypeDenoter;
+        } else if (expr.lit instanceof IntLiteral) {
+            expr.type = intTypeDenoter;
+        }
+        // expr.lit instanceof Identifier also possible from the typing, but not actually possible since we never used LiteralExpr with Identifier
+        // stand alone identifiers are taken care of by visitRefExpr
+
+        return null;
+    }
+
 	@Override public Void visitNullLiteral(NullLiteral num, Environment env) { return null; }
 	@Override public Void visitBooleanLiteral(BooleanLiteral bool, Environment env) { return null; }
 	@Override public Void visitIntLiteral(IntLiteral num, Environment env) { return null; }
 	@Override public Void visitOperator(Operator op, Environment env) { return null; }
-	@Override public Void visitLiteralExpr(LiteralExpr expr, Environment env) { return null; }
+	@Override public Void visitIdentifier(Identifier id, Environment env) { return null; }
+	@Override public Void visitBaseType(BaseType type, Environment env) { return null; }
 }
