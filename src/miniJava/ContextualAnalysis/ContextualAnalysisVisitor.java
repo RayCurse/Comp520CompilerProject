@@ -254,6 +254,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         if (stmt.elseStmt != null) {
             stmt.elseStmt.visit(this, env);
         }
+        if (stmt.cond.type.typeKind != TypeKind.BOOLEAN) {
+            env.errorMessages.add(String.format("Type error at %s, if statement condition must be a boolean", stmt.cond.posn));
+        }
         return null;
 	}
 
@@ -261,6 +264,9 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
 	public Void visitWhileStmt(WhileStmt stmt, Environment env) {
         stmt.cond.visit(this, env);
         stmt.body.visit(this, env);
+        if (stmt.cond.type.typeKind != TypeKind.BOOLEAN) {
+            env.errorMessages.add(String.format("Type error at %s, while statement condition must be a boolean", stmt.cond.posn));
+        }
         return null;
 	}
 
