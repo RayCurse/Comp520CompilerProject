@@ -105,24 +105,37 @@ public class Environment {
     // Find decl in a level 1 scope (class member)
     public MemberDecl findClassMember(ClassDecl classDecl, Identifier id, boolean isStaticContext, boolean isMethodContext) {
         String name = id.spelling;
-        Map<ClassDecl, Map<String, FieldDecl>> fields;
-        Map<ClassDecl, Map<String, MethodDecl>> methods;
-        if (isStaticContext) {
-            fields = staticClassFields;
-            methods = staticClassMethods;
-        } else {
-            fields = classFields;
-            methods = classMethods;
-        }
-        if (isMethodContext) {
-            if (methods.get(classDecl).containsKey(name)) {
-                return methods.get(classDecl).get(name);
+
+        if (!isStaticContext) {
+            // If not static, first try instance members, then try static members
+            if (isMethodContext) {
+                if (classMethods.get(classDecl).containsKey(name)) {
+                    return classMethods.get(classDecl).get(name);
+                }
+                if (staticClassMethods.get(classDecl).containsKey(name)) {
+                    return staticClassMethods.get(classDecl).get(name);
+                }
+            } else {
+                if (classFields.get(classDecl).containsKey(name)) {
+                    return classFields.get(classDecl).get(name);
+                }
+                if (staticClassFields.get(classDecl).containsKey(name)) {
+                    return staticClassFields.get(classDecl).get(name);
+                }
             }
         } else {
-            if (fields.get(classDecl).containsKey(name)) {
-                return fields.get(classDecl).get(name);
+            // If static, only try static members
+            if (isMethodContext) {
+                if (staticClassMethods.get(classDecl).containsKey(name)) {
+                    return staticClassMethods.get(classDecl).get(name);
+                }
+            } else {
+                if (staticClassFields.get(classDecl).containsKey(name)) {
+                    return staticClassFields.get(classDecl).get(name);
+                }
             }
         }
+
         return null;
     }
 
