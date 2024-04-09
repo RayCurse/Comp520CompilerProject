@@ -1,6 +1,7 @@
 package miniJava.ContextualAnalysis;
 
 import miniJava.AbstractSyntaxTrees.*;
+import miniJava.SyntacticAnalyzer.SourcePosition;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenType;
 import java.util.Map;
@@ -194,6 +195,32 @@ public class Environment {
                 errorMessages.add(String.format("Identification error at %s, identifier \"%s\" already declared at %s", methodDecl.posn, methodDecl.name, staticMethods.get(methodDecl.name).posn));
             }
             if (methodDecl.isStatic) {
+                if (methodDecl.name.equals("main") && !methodDecl.isPrivate && methodDecl.type.typeKind == TypeKind.VOID) {
+                    if (this.mainPosition != null) {
+                        errorMessages.add(String.format("Context error at %s, main method already declared at %s", methodDecl.posn, this.mainPosition));
+                    } else {
+                        // Check that main method only has one String[] parameter
+                        if (methodDecl.parameterDeclList.size() == 1) {
+                            ParameterDecl paramDecl = methodDecl.parameterDeclList.get(0);
+                            if (paramDecl.type instanceof ArrayType) {
+                                ArrayType arrayType = (ArrayType) paramDecl.type;
+                                if (arrayType.eltType instanceof ClassType) {
+                                    ClassType classType = (ClassType) arrayType.eltType;
+                                    if (!classType.className.spelling.equals("String")) {
+                                        errorMessages.add(String.format("Context error at %s, invalid parameter type for main method", methodDecl.posn));
+                                    }
+                                } else {
+                                    errorMessages.add(String.format("Context error at %s, invalid parameter type for main method", methodDecl.posn));
+                                }
+                            } else {
+                                errorMessages.add(String.format("Context error at %s, invalid parameter type for main method", methodDecl.posn));
+                            }
+                        } else {
+                            errorMessages.add(String.format("Context error at %s, main method must have one parameter", methodDecl.posn));
+                        }
+                        this.mainPosition = methodDecl.posn;
+                    }
+                }
                 addToScope(staticMethods, methodDecl);
             } else {
                 addToScope(methods, methodDecl);
@@ -211,4 +238,5 @@ public class Environment {
     public boolean isMethodContext = false; // are we trying to find a method (this is needed since I initially implemented it where methods and fields could have the same name)
     public String currentDeclaringIdentifier = null; // for ensuring that a variable name is not used in its own declaration
     public List<String> errorMessages = new ArrayList<String>();
+    public SourcePosition mainPosition = null;
 }

@@ -91,6 +91,11 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
             classDecl.visit(this, env);
         }
 
+        // Make sure we have a main method
+        if (env.mainPosition == null) {
+            env.errorMessages.add("Context error, program must contain a main method");
+        }
+
         return null;
 	}
 
@@ -137,8 +142,12 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         }
 
         // Ensure that last statement is a return statement
-        if (md.statementList.size() > 0 && md.type.typeKind != TypeKind.VOID) {
-            if (!(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt)) {
+        if (md.type.typeKind != TypeKind.VOID) {
+            if (md.statementList.size() > 0) {
+                if (!(md.statementList.get(md.statementList.size() - 1) instanceof ReturnStmt)) {
+                    env.errorMessages.add(String.format("Context error at %s, method must have a return statement", md.posn));
+                }
+            } else if (md.statementList.size() <= 0) {
                 env.errorMessages.add(String.format("Context error at %s, method must have a return statement", md.posn));
             }
         }
