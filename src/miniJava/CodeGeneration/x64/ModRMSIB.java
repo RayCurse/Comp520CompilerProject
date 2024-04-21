@@ -152,14 +152,26 @@ public class ModRMSIB {
 		int mod = 3;
 		
 		int regByte = ( mod << 6 ) | ( getIdx(r) << 3 ) | getIdx(rm);
-		_b.write( regByte ); 
+		_b.write( regByte );
 	}
 	
 	// [rdisp+disp],r
 	private void Make(Reg64 rdisp, int disp, Reg r) {
-		// TODO: construct the byte and write to _b
+		// COMPLETED: construct the byte and write to _b
 		// Operands: [rdisp+disp],r
 		int mod;
+        if (disp < -128 || disp > 127) {
+            mod = 2;
+        } else {
+            mod = 1;
+        }
+        _b.write( (mod << 6) | (getIdx(r) << 3) | 4);
+        _b.write((4 << 3) | (getIdx(rdisp)));
+        if (mod == 1) {
+            _b.write(disp);
+        } else {
+            writeInt(_b, disp);
+        }
 	}
 	
 	// [ridx*mult+disp],r
@@ -169,9 +181,27 @@ public class ModRMSIB {
 		if( ridx == Reg64.RSP )
 			throw new IllegalArgumentException("Index cannot be rsp");
 		
-		// TODO: construct the modrm byte and SIB byte
+		// COMPLETED: construct the modrm byte and SIB byte
 		// Operands: [ridx*mult + disp], r
-		int mod, ss;
+        int scale = 0;
+        switch(mult) {
+            case 1:
+                scale = 0;
+                break;
+            case 2:
+                scale = 1;
+                break;
+            case 4:
+                scale = 2;
+                break;
+            case 8:
+                scale = 3;
+                break;
+        }
+
+        _b.write( (getIdx(r) << 3) | 4 );
+        _b.write( (scale << 6) | (getIdx(ridx) << 3) | 5);
+        writeInt(_b, disp);
 	}
 	
 	// [rdisp+ridx*mult+disp],r
@@ -181,9 +211,38 @@ public class ModRMSIB {
 		if( ridx == Reg64.RSP )
 			throw new IllegalArgumentException("Index cannot be rsp");
 		
-		// TODO: construct the modrm byte and SIB byte
+		// COMPLETED: construct the modrm byte and SIB byte
 		// Operands: [rdisp + ridx*mult + disp], r
-		int mod, ss;
+        int scale = 0;
+        switch(mult) {
+            case 1:
+                scale = 0;
+                break;
+            case 2:
+                scale = 1;
+                break;
+            case 4:
+                scale = 2;
+                break;
+            case 8:
+                scale = 3;
+                break;
+        }
+
+		int mod;
+        if (disp < -128 || disp > 127) {
+            mod = 2;
+        } else {
+            mod = 1;
+        }
+
+        _b.write( (mod << 6) | (getIdx(r) << 3) | 4);
+        _b.write( (scale << 6) | (getIdx(ridx) << 3) | getIdx(rdisp) );
+        if (mod == 1) {
+            _b.write(disp);
+        } else {
+            writeInt(_b, disp);
+        }
 	}
 	
 	// [disp],r
@@ -197,7 +256,7 @@ public class ModRMSIB {
 		return x64.getIdx(r);
 	}
 	
-	// TODO: This is a duplicate declaration from x64.writeInt
+	// COMPLETED: This is a duplicate declaration from x64.writeInt
 	//  You should remove this, but the reason it is here is so that
 	//  you can immediately see what it does, and so you know what
 	//  is available to you in the x64 class.
