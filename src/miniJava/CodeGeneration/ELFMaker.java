@@ -5,13 +5,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
-import miniJava.ErrorReporter;
 import miniJava.CodeGeneration.x64.x64;
 
 // position independent ELF maker
 public class ELFMaker {
-	private ErrorReporter _errors;
+	private List<String> errorMessages;
 
 	private ELF elf = new ELF();
 	private ArrayList<ELFSection> sections = new ArrayList<ELFSection>();
@@ -26,8 +26,8 @@ public class ELFMaker {
 	private long sdataStartAddress;
 	private long bssOffset;
 	
-	public ELFMaker(ErrorReporter errors, long textSize, long bssSize) {
-		this._errors = errors;
+	public ELFMaker(List<String> errors, long textSize, long bssSize) {
+        errorMessages = errors;
 		
 		// first section is the null section
 		sections.add( makeNullSection() );
@@ -135,9 +135,9 @@ public class ELFMaker {
 			f.write( out.toByteArray() );
 			f.close();
 		} catch( FileNotFoundException e) {
-			_errors.reportError("FileNotFoundException: " + e);
+			errorMessages.add("FileNotFoundException: " + e);
 		} catch (IOException e) {
-			_errors.reportError("IOException: " + e);
+			errorMessages.add("IOException: " + e);
 		}
 	}
 	
