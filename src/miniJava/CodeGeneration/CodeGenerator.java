@@ -83,6 +83,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
             asm.patch(currentIdx, new Call(currentAddr, destinationAddr));
         }
+        asm.add(new Mov_rmr(new ModRMSIB(Reg64.RBX, Reg64.RCX, 8, 0, Reg64.RAX)));
 
 		// Output the file "a.out" if no errors
         if (errorMessages.isEmpty()) {
@@ -307,6 +308,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
         asm.add(new Pop(Reg64.RAX));
         asm.add(new Pop(Reg64.RBX));
         asm.add(new Pop(Reg64.RCX));
+        asm.add(new Mov_rrm(new ModRMSIB(Reg64.RBX, 0, Reg64.RBX))); // dereference array pointer
 
         // RCX contains index, RBX base of array, RAX the value to be assigned
         asm.add(new Mov_rmr(new ModRMSIB(Reg64.RBX, Reg64.RCX, 8, 0, Reg64.RAX)));
