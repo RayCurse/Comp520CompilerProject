@@ -348,7 +348,11 @@ public class ASTDisplay implements Visitor<String,Object> {
     public Object visitIdentifier(Identifier id, String arg){
         show(arg, quote(id.spelling) + " " + id.toString());
         if (id.declaration != null) {
-            show(arg, "declared at " + id.declaration.posn.toString());
+            if (id.declaration.posn != null) {
+                show(arg, "declared at " + id.declaration.posn.toString());
+            } else {
+                show(arg, "declaration position empty");
+            }
         } else {
             show(arg, "declaration not found");
         }

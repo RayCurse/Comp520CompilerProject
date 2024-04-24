@@ -36,16 +36,17 @@ public class Compiler {
             }
 
             ContextualAnalysisVisitor contextualAnalysisVisitor = new ContextualAnalysisVisitor();
-            Environment env = new Environment();
+            Environment env = new Environment(AST);
             AST.visit(contextualAnalysisVisitor, env);
 
             ASTDisplay display = new ASTDisplay();
-            // display.showTree(AST);
+            display.showTree(AST);
 
             if (env.errorMessages.size() > 0) {
                 System.out.println("Error");
                 for (String errorMessage : env.errorMessages) {
                     System.out.println(errorMessage);
+                    System.exit(0);
                 }
             }
 

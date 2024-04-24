@@ -84,8 +84,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
             asm.patch(currentIdx, new Call(currentAddr, destinationAddr));
         }
 
-        // Jump to end of program
-
         asm.outputFromMark(true);
 		
 		// Output the file "a.out" if no errors
@@ -117,7 +115,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	
     // print RBX value, then null byte
 	private int makePrintln() {
-		// TODO: how can we generate the assembly to println?
+		// COMPLETED: how can we generate the assembly to println?
 		int idxStart = asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 1)); // mmap
         asm.add(new Xor(new ModRMSIB(Reg64.RDI, Reg64.RDI)));
         asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDX, true), 2));

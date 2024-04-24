@@ -1,6 +1,7 @@
 package miniJava.ContextualAnalysis;
 
 import miniJava.AbstractSyntaxTrees.*;
+import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.SyntacticAnalyzer.SourcePosition;
 import miniJava.SyntacticAnalyzer.Token;
 import miniJava.SyntacticAnalyzer.TokenType;
@@ -35,28 +36,24 @@ public class Environment {
     }
 
     // Init System, _PrintStream, and String in constructor
-    public Environment() {
+    public Environment(Package pkg) {
         MethodDeclList printStreamMethods = new MethodDeclList();
         ParameterDeclList printlnParams = new ParameterDeclList();
         printlnParams.add(new ParameterDecl(new BaseType(TypeKind.INT, null), "n", null));
         this.printlnMethodDecl = new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null), printlnParams, new StatementList(), null);
         printStreamMethods.add(this.printlnMethodDecl);
         ClassDecl printStream = new ClassDecl("_PrintStream", new FieldDeclList(), printStreamMethods, null);
+        pkg.classDeclList.add(printStream);
 
         FieldDeclList systemFields = new FieldDeclList();
         Identifier printStreamIdentifier = new Identifier(new Token(TokenType.Id, "_PrintStream", null));
         printStreamIdentifier.declaration = printStream;
         systemFields.add(new FieldDecl(false, true, new ClassType(printStreamIdentifier, null), "out", null));
         ClassDecl system = new ClassDecl("System", systemFields, new MethodDeclList(), null);
+        pkg.classDeclList.add(system);
 
         ClassDecl string = new ClassDecl("String", new FieldDeclList(), new MethodDeclList(), null);
-
-        currentClass = system;
-        addClass(system);
-        currentClass = printStream;
-        addClass(printStream);
-        currentClass = string;
-        addClass(string);
+        pkg.classDeclList.add(string);
     }
 
     // Local var scopes
