@@ -92,7 +92,7 @@ public class ContextualAnalysisVisitor implements Visitor<Environment, Void> {
         }
 
         // Make sure we have a main method
-        if (env.mainPosition == null) {
+        if (env.mainMethodDecl == null) {
             env.errorMessages.add("Context error, program must contain a main method");
         }
 

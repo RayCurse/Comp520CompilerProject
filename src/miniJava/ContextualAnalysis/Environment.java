@@ -39,7 +39,8 @@ public class Environment {
         MethodDeclList printStreamMethods = new MethodDeclList();
         ParameterDeclList printlnParams = new ParameterDeclList();
         printlnParams.add(new ParameterDecl(new BaseType(TypeKind.INT, null), "n", null));
-        printStreamMethods.add(new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null), printlnParams, new StatementList(), null));
+        this.printlnMethodDecl = new MethodDecl(new FieldDecl(false, false, new BaseType(TypeKind.VOID, null), "println", null), printlnParams, new StatementList(), null);
+        printStreamMethods.add(this.printlnMethodDecl);
         ClassDecl printStream = new ClassDecl("_PrintStream", new FieldDeclList(), printStreamMethods, null);
 
         FieldDeclList systemFields = new FieldDeclList();
@@ -196,8 +197,8 @@ public class Environment {
             }
             if (methodDecl.isStatic) {
                 if (methodDecl.name.equals("main") && !methodDecl.isPrivate && methodDecl.type.typeKind == TypeKind.VOID) {
-                    if (this.mainPosition != null) {
-                        errorMessages.add(String.format("Context error at %s, main method already declared at %s", methodDecl.posn, this.mainPosition));
+                    if (this.mainMethodDecl != null) {
+                        errorMessages.add(String.format("Context error at %s, main method already declared at %s", methodDecl.posn, this.mainMethodDecl.posn));
                     } else {
                         // Check that main method only has one String[] parameter
                         if (methodDecl.parameterDeclList.size() == 1) {
@@ -218,7 +219,7 @@ public class Environment {
                         } else {
                             errorMessages.add(String.format("Context error at %s, main method must have one parameter", methodDecl.posn));
                         }
-                        this.mainPosition = methodDecl.posn;
+                        this.mainMethodDecl = methodDecl;
                     }
                 }
                 addToScope(staticMethods, methodDecl);
@@ -238,5 +239,6 @@ public class Environment {
     public boolean isMethodContext = false; // are we trying to find a method (this is needed since I initially implemented it where methods and fields could have the same name)
     public String currentDeclaringIdentifier = null; // for ensuring that a variable name is not used in its own declaration
     public List<String> errorMessages = new ArrayList<String>();
-    public SourcePosition mainPosition = null;
+    public MethodDecl mainMethodDecl = null;
+    public MethodDecl printlnMethodDecl = null;
 }

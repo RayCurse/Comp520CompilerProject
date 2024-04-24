@@ -17,4 +17,5 @@ public abstract class Declaration extends AST {
 	
 	public String name;
 	public TypeDenoter type;
+    public int offset = -1;
 }

@@ -13,6 +13,10 @@ public class InstructionList {
 	public int getSize() {
 		return _currentSize;
 	}
+
+    public int getNumInstructions() {
+        return _currentIdx;
+    }
 	
 	public int add(Instruction ins) {
 		ins.startAddress = _currentSize;
@@ -31,13 +35,15 @@ public class InstructionList {
 		_markStart = _currentIdx;
 	}
 	
-	public void outputFromMark() {
+	public void outputFromMark(boolean justBytes) {
 		if( _markStart < 0 ) return;
 		
 		for( int i = _markStart; i < _currentIdx; ++i ) {
 			Instruction ins = _instructions.get(i);
 			byte[] barr = ins.getBytes();
-			System.out.printf( "%04X %s\t", ins.startAddress, ins.getClass().getSimpleName() );
+            if (!justBytes) {
+                System.out.printf( "%04X %s\t", ins.startAddress, ins.getClass().getSimpleName() );
+            }
 			renderBytes(barr);
 			System.out.println();
 		}

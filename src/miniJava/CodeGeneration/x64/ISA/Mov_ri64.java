@@ -9,7 +9,7 @@ public class Mov_ri64 extends Instruction {
 	public Mov_ri64(Reg64 reg, long imm64) {
 		rexW = true; // operand is 64bit
 		// COMPLETED: first, check if the Reg64 is R8-R15, if it is, set one of rexB,rexW,rexR,rexX to true (which one?)
-        if (reg.getIdx() >= 8 || reg.getIdx() <= 15) {
+        if (reg.getIdx() >= 8 && reg.getIdx() <= 15) {
             rexB = true;
         }
 

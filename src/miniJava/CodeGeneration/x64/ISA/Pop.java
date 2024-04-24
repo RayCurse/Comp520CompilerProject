@@ -10,7 +10,7 @@ public class Pop extends Instruction {
 		// COMPLETED: first, check if the Reg64 is R8-R15, if it is, set one of rexB,rexW,rexR,rexX to true (which one?)
 		// COMPLETED: second, find the opcode for pop r, where r is a plain 64-bit register
 		// NOTE: x64.getIdx(r) will return a 0-7 index, whereas r.getIdx() returns an index from 0-15
-        if (r.getIdx() >= 8 || r.getIdx() <= 15) {
+        if (r.getIdx() >= 8 && r.getIdx() <= 15) {
             rexB = true;
         }
 		opcodeBytes.write( 0x58 + x64.getIdx(r) );

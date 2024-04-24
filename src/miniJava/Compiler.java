@@ -6,6 +6,7 @@ import java.io.IOException;
 
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.AbstractSyntaxTrees.Package;
+import miniJava.CodeGeneration.CodeGenerator;
 import miniJava.ContextualAnalysis.ContextualAnalysisVisitor;
 import miniJava.ContextualAnalysis.Environment;
 import miniJava.SyntacticAnalyzer.Parser;
@@ -44,6 +45,15 @@ public class Compiler {
             if (env.errorMessages.size() > 0) {
                 System.out.println("Error");
                 for (String errorMessage : env.errorMessages) {
+                    System.out.println(errorMessage);
+                }
+            }
+
+            CodeGenerator codeGenerator = new CodeGenerator();
+            codeGenerator.parse(AST, env.mainMethodDecl, env.printlnMethodDecl);
+            if (!codeGenerator.errorMessages.isEmpty()) {
+                System.out.println("Error");
+                for (String errorMessage : codeGenerator.errorMessages) {
                     System.out.println(errorMessage);
                 }
             } else {
