@@ -15,16 +15,18 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	private InstructionList asm; // our list of instructions that are used to make the code section
     private MethodDecl mainMethodDecl;
     private MethodDecl printlnMethodDecl;
+    private FieldDecl outFieldDecl;
     private Map<Integer, Declaration> callMethodPatches = new HashMap<Integer, Declaration>();
 
     private int mainMethodAddr = 0;
 	
 	public CodeGenerator() {}
 	
-	public void parse(Package AST, MethodDecl mainMethodDecl, MethodDecl printlnMethodDecl) {
+	public void parse(Package AST, MethodDecl mainMethodDecl, MethodDecl printlnMethodDecl, FieldDecl outFieldDecl) {
 		asm = new InstructionList();
         this.mainMethodDecl = mainMethodDecl;
         this.printlnMethodDecl = printlnMethodDecl;
+        this.outFieldDecl = outFieldDecl;
 		
 		// If you haven't refactored the name "ModRMSIB" to something like "R",
 		//  go ahead and do that now. You'll be needing that object a lot.
@@ -94,7 +96,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	
 	public void makeElf(String fname) {
 		ELFMaker elf = new ELFMaker(errorMessages, asm.getSize(), 8); // bss ignored until PA5, set to 8
-		elf.outputELF(fname, asm.getBytes(), mainMethodAddr); // COMPLETED: set the location of the main method
+		elf.outputELF(fname, asm.getBytes(), 0); // COMPLETED: set the location of the main method
 	}
 	
 	private int makeMalloc() {
@@ -120,8 +122,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
         asm.add(new Xor(new ModRMSIB(Reg64.RDI, Reg64.RDI)));
         asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDX, true), 2));
 
-        asm.add(new Lea(new ModRMSIB(Reg64.RBP, 16, Reg64.RSI)));
-        asm.add(new And(new ModRMSIB(Reg64.RBP, true), 15));
+        asm.add(new Lea(new ModRMSIB(Reg64.RBP, 24, Reg64.RSI)));
+        asm.add(new And(new ModRMSIB(Reg64.RBP, 24), 127));
 
 		asm.add(new Syscall());
 		return idxStart;
@@ -139,8 +141,8 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	@Override
 	public Object visitPackage(Package prog, Object arg) {
         // Add static variables at beginning of stack, set offsets for instance variables
-        asm.add(new Mov_rmr(new ModRMSIB(Reg64.R15, Reg64.RBP)));
-        int staticVarOffset = 0;
+        asm.add(new Mov_rmr(new ModRMSIB(Reg64.R15, Reg64.RSP)));
+        int staticVarOffset = 1;
         for (ClassDecl classDecl : prog.classDeclList) {
             int instanceVarOffset = 0;
             for (FieldDecl fieldDecl : classDecl.fieldDeclList) {
@@ -152,6 +154,11 @@ public class CodeGenerator implements Visitor<Object, Object> {
                 }
             }
         }
+
+        // Init some memory for the out _PrintStream obj for System.out.println
+        // Otherwise we have a null pointer and seg fault error
+        makeMalloc();
+        asm.add(new Mov_rmr(new ModRMSIB(Reg64.R15, outFieldDecl.offset*8, Reg64.RAX)));
 
         // Add main method call, exit afterwards
         int mainMethodCallIdx = asm.add(new Call(0));

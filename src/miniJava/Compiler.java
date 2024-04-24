@@ -40,7 +40,7 @@ public class Compiler {
             AST.visit(contextualAnalysisVisitor, env);
 
             ASTDisplay display = new ASTDisplay();
-            display.showTree(AST);
+            // display.showTree(AST);
 
             if (env.errorMessages.size() > 0) {
                 System.out.println("Error");
@@ -51,7 +51,7 @@ public class Compiler {
             }
 
             CodeGenerator codeGenerator = new CodeGenerator();
-            codeGenerator.parse(AST, env.mainMethodDecl, env.printlnMethodDecl);
+            codeGenerator.parse(AST, env.mainMethodDecl, env.printlnMethodDecl, env.outFieldDecl);
             if (!codeGenerator.errorMessages.isEmpty()) {
                 System.out.println("Error");
                 for (String errorMessage : codeGenerator.errorMessages) {

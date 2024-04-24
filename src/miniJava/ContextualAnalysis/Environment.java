@@ -48,7 +48,8 @@ public class Environment {
         FieldDeclList systemFields = new FieldDeclList();
         Identifier printStreamIdentifier = new Identifier(new Token(TokenType.Id, "_PrintStream", null));
         printStreamIdentifier.declaration = printStream;
-        systemFields.add(new FieldDecl(false, true, new ClassType(printStreamIdentifier, null), "out", null));
+        outFieldDecl = new FieldDecl(false, true, new ClassType(printStreamIdentifier, null), "out", null);
+        systemFields.add(outFieldDecl);
         ClassDecl system = new ClassDecl("System", systemFields, new MethodDeclList(), null);
         pkg.classDeclList.add(system);
 
@@ -238,4 +239,5 @@ public class Environment {
     public List<String> errorMessages = new ArrayList<String>();
     public MethodDecl mainMethodDecl = null;
     public MethodDecl printlnMethodDecl = null;
+    public FieldDecl outFieldDecl = null;
 }
