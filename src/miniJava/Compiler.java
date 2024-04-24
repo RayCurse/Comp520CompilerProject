@@ -58,7 +58,7 @@ public class Compiler {
                     System.out.println(errorMessage);
                 }
             } else {
-                System.out.println("Success");
+                // System.out.println("Success");
             }
         } finally {
             if (fStream != null) { fStream.close(); }

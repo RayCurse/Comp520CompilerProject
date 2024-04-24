@@ -71,8 +71,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
 		//  Note the false means that it is a 32-bit immediate for jumping (an int)
 		//     asm.patch( someJump.listIdx, new Jmp(asm.size(), someJump.startAddress, false) );
 		
-        asm.markOutputStart();
-
         // Generate code
 		AST.visit(this,null);
 
@@ -86,8 +84,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
             asm.patch(currentIdx, new Call(currentAddr, destinationAddr));
         }
 
-        asm.outputFromMark(true);
-		
 		// Output the file "a.out" if no errors
         if (errorMessages.isEmpty()) {
 			makeElf("a.out");
@@ -118,9 +114,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
     // print RBX value, then null byte
 	private int makePrintln() {
 		// COMPLETED: how can we generate the assembly to println?
-		int idxStart = asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 1)); // mmap
-        asm.add(new Xor(new ModRMSIB(Reg64.RDI, Reg64.RDI)));
-        asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDX, true), 2));
+		int idxStart = asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 1));
+        asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDI, true), 1));
+        asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDX, true), 1));
 
         asm.add(new Lea(new ModRMSIB(Reg64.RBP, 24, Reg64.RSI)));
         asm.add(new And(new ModRMSIB(Reg64.RBP, 24), 127));
@@ -130,7 +126,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	}
 
     private int makeSysExit() {
-		int idxStart = asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 60)); // mmap
+		int idxStart = asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 60));
         asm.add(new Xor(new ModRMSIB(Reg64.RDI, Reg64.RDI)));
 		asm.add(new Syscall());
         return idxStart;
@@ -162,6 +158,18 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Add main method call, exit afterwards
         int mainMethodCallIdx = asm.add(new Call(0));
+
+        // Output null byte
+        asm.add(new Mov_rmi(new ModRMSIB(Reg64.RAX,true), 1));
+        asm.add(new Xor(new ModRMSIB(Reg64.RDI, Reg64.RDI)));
+        asm.add(new Mov_rmi(new ModRMSIB(Reg64.RDX, true), 1));
+
+        asm.add(new Push(0));
+        asm.add(new Lea(new ModRMSIB(Reg64.RBP, -8, Reg64.RSI)));
+
+		asm.add(new Syscall());
+
+        // Exit
         makeSysExit();
 
         // Visit all classes
@@ -171,6 +179,7 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
         // Patch main method call now that we know where it is
         callMethodPatches.put(mainMethodCallIdx, mainMethodDecl);
+
 
 		return null;
 	}
