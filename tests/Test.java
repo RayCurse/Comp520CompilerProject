@@ -1,18 +1,14 @@
 /**
  * COMP 520
- * Array update and array.length
+ * Complex method invocation
  */
 class MainClass {
+    public static int foo() {
+        // int x = 1;
+        return 1;
+    }
    public static void main (String [] args) {
-
-      int aa_length = 4;
-      int [] aa = new int [aa_length];
-
-      int i = 1;
-      aa[0] = i;
-      while (i < aa_length) {
-          aa[i] = aa[i-1] + i;
-          i = i + 1;
-      }
+        // int z = foo(1, 2);
+        foo();
    }
 }

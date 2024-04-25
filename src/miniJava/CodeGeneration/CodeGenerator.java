@@ -85,6 +85,9 @@ public class CodeGenerator implements Visitor<Object, Object> {
         }
         asm.add(new Mov_rmr(new ModRMSIB(Reg64.RBX, Reg64.RCX, 8, 0, Reg64.RAX)));
 
+        asm.markOutputStart();
+        asm.outputFromMark(true);
+
 		// Output the file "a.out" if no errors
         if (errorMessages.isEmpty()) {
 			makeElf("a.out");
@@ -238,8 +241,6 @@ public class CodeGenerator implements Visitor<Object, Object> {
         // De init stack frame
         asm.add(new Mov_rmr(new ModRMSIB(Reg64.RSP, Reg64.RBP)));
         asm.add(new Pop(Reg64.RBP));
-
-        // Add ret
         asm.add(new Ret());
 
         return null;
@@ -369,7 +370,12 @@ public class CodeGenerator implements Visitor<Object, Object> {
 	public Object visitReturnStmt(ReturnStmt stmt, Object arg) {
         stmt.returnExpr.visit(this, null);
         asm.add(new Pop(Reg64.RAX));
+
+        // De init stack frame
+        asm.add(new Mov_rmr(new ModRMSIB(Reg64.RSP, Reg64.RBP)));
+        asm.add(new Pop(Reg64.RBP));
         asm.add(new Ret());
+
         return null;
 	}
 
@@ -590,10 +596,32 @@ public class CodeGenerator implements Visitor<Object, Object> {
 
 	@Override
 	public Object visitIdRef(IdRef ref, Object arg) {
-        // On the stack, decl offset tells negative offset from RBP
-        int offset = -8*ref.id.declaration.offset;
-        asm.add(new Lea(new ModRMSIB(Reg64.RBP, offset, Reg64.RAX)));
-        asm.add(new Push(Reg64.RAX));
+        if (ref.id.declaration instanceof VarDecl) {
+            // On the stack, decl offset tells negative offset from RBP
+            int offset = -8*ref.id.declaration.offset;
+            asm.add(new Lea(new ModRMSIB(Reg64.RBP, offset, Reg64.RAX)));
+            asm.add(new Push(Reg64.RAX));
+        } else if (ref.id.declaration instanceof ParameterDecl) {
+            // On the stack, is an argument, decl offset tells positive offset from RBP
+            int offset = 8*ref.id.declaration.offset;
+            asm.add(new Lea(new ModRMSIB(Reg64.RBP, offset, Reg64.RAX)));
+            asm.add(new Push(Reg64.RAX));
+        } else if (ref.id.declaration instanceof FieldDecl) {
+            // Instance variable, offset from "this" which is first argument (RBP + 16)
+            int offset = 8*ref.id.declaration.offset;
+            asm.add(new Mov_rrm(new ModRMSIB(Reg64.RBP, 16, Reg64.RAX)));
+            asm.add(new Lea(new ModRMSIB(Reg64.RAX, offset, Reg64.RAX)));
+            asm.add(new Push(Reg64.RAX));
+        } else {
+            // It's a class decl
+            // Must be in a qual ref, next id is a static member
+            // Therefore, the result of this visit is not actually needed
+            // (we know the location of static members on the stack already, know the location of static methods in the code)
+            // Push some junk value anyways since the caller will pop something off the stack assuming that this visit pushed something
+            int offset = -8*ref.id.declaration.offset;
+            asm.add(new Lea(new ModRMSIB(Reg64.RBP, offset, Reg64.RAX)));
+            asm.add(new Push(Reg64.RAX));
+        }
         return null;
 	}
 
