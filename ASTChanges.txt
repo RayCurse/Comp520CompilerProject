@@ -1,0 +1,5 @@
+* Added Identifier field to IdRef
+* Added TypeDenoter field to Expression
+* Added equals method to TypeDenoter
+* Added equals method to ClassType
+* Added int offset field do Declaration
