@@ -1,3 +1,10 @@
+# Comp 520 Compiler Project
+My implementation of the COMP 520 (Compilers) compiler assignment taught by Syed Ali during the spring semester of 2024 at UNC. The "PA" branches checkpoint what I submitted for each part of the assignment.
+
+<details>
+<summary>Original README submitted as part of PA5 requirements</summary>
+
+---
 # Syntactic Analysis
 
 Syntactic analysis is in package `miniJava.SyntacticAnalyzer`. `Scanner` represents a stream of tokens. It's `scan()` method returns the next token in the file until it reaches the end of file upon which it will return `TokenType.EOT` forever.
@@ -23,3 +30,6 @@ Static variables were put at the beginning of the stack. Register `R15` is used 
 Visiting a reference places its address on the stack and visiting an expression puts its value on the stack. Any code that visits a reference or expression should immediately pop the stack into a register.
 
 For any `call` instructions, a patch list is maintained that contains all the method code locations to be patched in later. 8 bytes are greedily allocated for any type of data value. Immediates are not optimized to reduce instruction size (for example using imm32 when only imm8 is needed).
+
+---
+</details>
